@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="description" content="Game 3D Subway Surfers Web - Lari di atas rel kereta, hindari rintangan, gunakan jetpack & hoverboard, dan kumpulkan koin emas!">
+  <title>Subway Surfers 3D - Ultimate Web Edition</title>
+  
+  <link rel="stylesheet" href="css/style.css">
+  
+  <!-- Three.js 3D WebGL Library -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+</head>
+<body>
+  <div id="game-container">
+    <!-- 3D Three.js WebGL Canvas -->
+    <canvas id="three-canvas"></canvas>
+
+    <!-- Speed Vignette FX -->
+    <div id="speed-vignette" class="speed-vignette"></div>
+
+    <!-- HUD & Gameplay Stats Overlay -->
+    <div id="hud-overlay">
+      <!-- Top HUD Bar -->
+      <div class="hud-top">
+        <div class="hud-left">
+          <div class="stat-badge coin-badge">
+            <span class="stat-icon">🪙</span>
+            <span id="hud-coin-val">0</span>
+          </div>
+          <div class="stat-badge key-badge">
+            <span class="stat-icon">🔑</span>
+            <span class="hud-key-count">0</span>
+          </div>
+          <!-- Active Power-ups Bar -->
+          <div id="powerups-tray" class="powerups-tray"></div>
+        </div>
+
+        <div class="hud-right">
+          <div class="hud-actions">
+            <button id="btn-audio-toggle" class="btn-icon" title="Toggle Suara">🔊</button>
+            <button id="btn-pause-toggle" class="btn-icon" title="Pause Game" onclick="window.game && window.game.togglePause()">⏸️</button>
+          </div>
+          <div class="score-display">
+            <span class="score-label">SCORE</span>
+            <span id="hud-score-val" class="score-val">0</span>
+            <span class="high-score-sub">BEST: <span class="hud-highscore-count">0</span></span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Bottom HUD (Hoverboard & Mobile Action) -->
+      <div class="hud-bottom">
+        <div class="board-btn-container">
+          <button id="btn-board-trigger" class="board-trigger-btn ready" title="Aktifkan Hoverboard (Double Tap / Space)">
+            🛹
+          </button>
+          <span class="board-label">HOVERBOARD</span>
+        </div>
+
+        <div class="multiplier-tag">
+          <span id="hud-multiplier-val">2X BOOST</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Mobile Virtual D-Pad -->
+    <div class="mobile-controls">
+      <div class="mobile-dpad">
+        <button id="dpad-up" class="dpad-btn dpad-up" aria-label="Lompat">▲</button>
+        <button id="dpad-left" class="dpad-btn dpad-left" aria-label="Geser Kiri">◀</button>
+        <button id="dpad-right" class="dpad-btn dpad-right" aria-label="Geser Kanan">▶</button>
+        <button id="dpad-down" class="dpad-btn dpad-down" aria-label="Seluncur">▼</button>
+      </div>
+    </div>
+
+    <!-- MAIN MENU MODAL -->
+    <div id="menu-modal" class="modal-backdrop">
+      <div class="game-modal">
+        <h1 class="game-title">SUBWAY SURFERS</h1>
+        <p class="game-subtitle">3D Ultimate Runner Edition</p>
+
+        <div class="stats-summary-card">
+          <div class="stat-item">
+            <span class="stat-item-label">TOTAL KOIN</span>
+            <span class="stat-item-val coins">🪙 <span class="hud-coin-count">0</span></span>
+          </div>
+          <div class="stat-item">
+            <span class="stat-item-label">SKOR TERTINGGI</span>
+            <span class="stat-item-val highlight"><span class="hud-highscore-count">0</span></span>
+          </div>
+        </div>
+
+        <div class="menu-buttons-grid">
+          <button id="btn-play" class="btn-primary">
+            <span>▶️</span> MAIN SEKARANG
+          </button>
+          <div class="menu-row">
+            <button id="btn-shop" class="btn-secondary">
+              <span>🛍️</span> TOKO & UPGRADE
+            </button>
+            <button id="btn-tutorial" class="btn-secondary">
+              <span>❓</span> CARA MAIN
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SHOP & UPGRADES MODAL -->
+    <div id="shop-modal" class="modal-backdrop hidden">
+      <div class="game-modal shop-modal">
+        <div class="shop-header">
+          <h2 class="shop-title">TOKO RUNNER</h2>
+          <div class="shop-currency">
+            <div class="stat-badge coin-badge">🪙 <span class="hud-coin-count">0</span></div>
+            <div class="stat-badge key-badge">🔑 <span class="hud-key-count">0</span></div>
+          </div>
+        </div>
+
+        <div class="shop-tabs">
+          <button id="tab-characters" class="shop-tab-btn active">Karakter</button>
+          <button id="tab-boards" class="shop-tab-btn">Hoverboard</button>
+          <button id="tab-upgrades" class="shop-tab-btn">Upgrade Power-up</button>
+        </div>
+
+        <!-- Dynamic Items Container -->
+        <div id="shop-items-list" class="shop-items-container"></div>
+
+        <button id="btn-close-shop" class="btn-secondary" style="margin-top: 16px;">
+          TUTUP TOKO
+        </button>
+      </div>
+    </div>
+
+    <!-- HOW TO PLAY / TUTORIAL MODAL -->
+    <div id="tutorial-modal" class="modal-backdrop hidden">
+      <div class="game-modal">
+        <h2 class="shop-title" style="margin-bottom: 8px;">KONTROL & CARA MAIN</h2>
+        <p class="game-subtitle">Hindari kereta dan satpam yang mengejar!</p>
+
+        <div class="controls-grid">
+          <div class="control-item">
+            <span class="control-key">A / ◀</span>
+            <span class="control-desc">Pindah Kiri (Swipe Kiri)</span>
+          </div>
+          <div class="control-item">
+            <span class="control-key">D / ▶</span>
+            <span class="control-desc">Pindah Kanan (Swipe Kanan)</span>
+          </div>
+          <div class="control-item">
+            <span class="control-key">W / ▲</span>
+            <span class="control-desc">Lompat Rintangan (Swipe Atas)</span>
+          </div>
+          <div class="control-item">
+            <span class="control-key">S / ▼</span>
+            <span class="control-desc">Seluncur / Slide (Swipe Bawah)</span>
+          </div>
+          <div class="control-item" style="grid-column: span 2;">
+            <span class="control-key">SPASI / Double-Tap</span>
+            <span class="control-desc">Aktifkan Hoverboard (Perisai Pelindung)</span>
+          </div>
+        </div>
+
+        <button id="btn-close-tutorial" class="btn-primary">
+          MENGERTI & MAIN
+        </button>
+      </div>
+    </div>
+
+    <!-- PAUSE MODAL -->
+    <div id="pause-modal" class="modal-backdrop hidden">
+      <div class="game-modal">
+        <h2 class="game-title">GAME DIHENTIKAN</h2>
+        <p class="game-subtitle">Tarik napas sejenak sebelum lari lagi!</p>
+
+        <div class="menu-buttons-grid">
+          <button id="btn-resume" class="btn-primary">
+            <span>▶️</span> LANJUTKAN
+          </button>
+          <button id="btn-retry" class="btn-secondary">
+            <span>🔄</span> RESTART
+          </button>
+          <button id="btn-quit" class="btn-secondary">
+            <span>🏠</span> KEMBALI KE MENU
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- GAME OVER MODAL -->
+    <div id="gameover-modal" class="modal-backdrop hidden">
+      <div class="game-modal">
+        <h2 class="game-title" style="color: #ff3366;">TERTANGKAP!</h2>
+        <div id="new-record-badge" class="new-record-badge" style="display: none;">🏆 REKOR BARU!</div>
+
+        <div class="stats-summary-card">
+          <div class="stat-item">
+            <span class="stat-item-label">SKOR ANDA</span>
+            <span id="final-score" class="stat-item-val highlight">0</span>
+          </div>
+          <div class="stat-item">
+            <span class="stat-item-label">KOIN DIPEROLEH</span>
+            <span id="final-coins" class="stat-item-val coins">+0</span>
+          </div>
+          <div class="stat-item" style="grid-column: span 2;">
+            <span class="stat-item-label">JARAK TEMPUH</span>
+            <span id="final-distance" class="stat-item-val">0m</span>
+          </div>
+        </div>
+
+        <div class="menu-buttons-grid">
+          <button id="btn-revive-key" class="btn-primary" style="background: linear-gradient(135deg, #00d2ff, #0055ff); display: none;">
+            <span>🔑</span> HIDUPKAN KEMBALI (1 KUNCI)
+          </button>
+          <button onclick="window.game && window.game.startGame()" class="btn-primary">
+            <span>🔄</span> MAIN LAGI
+          </button>
+          <div class="menu-row">
+            <button onclick="document.getElementById('gameover-modal').classList.add('hidden'); document.getElementById('shop-modal').classList.remove('hidden');" class="btn-secondary">
+              <span>🛍️</span> TOKO
+            </button>
+            <button onclick="document.getElementById('gameover-modal').classList.add('hidden'); document.getElementById('menu-modal').classList.remove('hidden');" class="btn-secondary">
+              <span>🏠</span> MENU
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- GAME LOGIC SCRIPTS -->
+  <script src="js/audio.js"></script>
+  <script src="js/models.js"></script>
+  <script src="js/shop.js"></script>
+  <script src="js/controls.js"></script>
+  <script src="js/game.js"></script>
+</body>
+</html>
