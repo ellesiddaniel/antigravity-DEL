@@ -2,452 +2,299 @@
 <html lang="id">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Ghost of Tsushima: Way of the Samurai (RPG)</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>BRAWL LEGENDS - 2D Platform Fighter</title>
+  <meta name="description" content="Game 2D Platform Fighter bertema Brawlhalla dengan 4 karakter unik, sistem damage knockback, AI pintar, dan efek pertarungan seru!">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700;900&family=Noto+Serif+JP:wght@400;700;900&family=Plus+Jakarta+Sans:wght@400;600;800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;800;900&family=Rajdhani:wght@600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="css/style.css">
-  <!-- Three.js CDN -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 </head>
-<body class="kurosawa-off">
-  <!-- 3D Canvas Container -->
-  <div id="game-container">
-    <canvas id="bg-canvas"></canvas>
-  </div>
+<body>
+  <div id="game-wrapper">
+    <!-- Game Canvas -->
+    <canvas id="gameCanvas" width="1280" height="720"></canvas>
 
-  <!-- Cinematic Letterbox Bars -->
-  <div id="cinematic-bar-top" class="cinematic-bar"></div>
-  <div id="cinematic-bar-bottom" class="cinematic-bar"></div>
-
-  <!-- Screen Flash & Vignette Overlays -->
-  <div id="parry-flash" class="screen-flash"></div>
-  <div id="ghost-overlay" class="ghost-vignette"></div>
-  <div id="blood-vignette" class="low-hp-vignette"></div>
-  <div id="kurosawa-grain" class="film-grain"></div>
-
-  <!-- Game HUD Overlay -->
-  <div id="hud">
-    <!-- Top Left: Player Status & Legend Rank -->
-    <div class="hud-player-profile">
-      <div class="profile-badge">
-        <div class="sakai-mon-icon"></div>
-        <div class="profile-text">
-          <div class="player-name">JIN SAKAI <span class="japanese-name">境 井 仁</span></div>
-          <div class="player-title" id="player-title">THE GHOST OF TSUSHIMA</div>
-        </div>
-      </div>
-
-      <!-- Health Bar (Bamboo aesthetic) -->
-      <div class="bar-container health-wrap">
-        <div class="bar-label">HEALTH</div>
-        <div class="bar-track">
-          <div id="health-bar" class="bar-fill health-fill" style="width: 100%;"></div>
-          <div id="health-ghost-bar" class="bar-ghost" style="width: 100%;"></div>
-        </div>
-        <div class="bar-value" id="health-text">100 / 100</div>
-      </div>
-
-      <!-- Posture / Guard Meter -->
-      <div class="bar-container posture-wrap">
-        <div class="bar-label">POSTURE</div>
-        <div class="bar-track posture-track">
-          <div id="posture-bar" class="bar-fill posture-fill" style="width: 0%;"></div>
-        </div>
-      </div>
-
-      <!-- Resolve Orbs (Golden Talismans) -->
-      <div class="resolve-section">
-        <div class="resolve-label">RESOLVE <span class="key-hint">[E] HEAL</span></div>
-        <div class="resolve-orbs-container" id="resolve-orbs">
-          <!-- Dynamically populated 3-6 orbs -->
-        </div>
-      </div>
-
-      <!-- Ghost Stance Meter -->
-      <div class="ghost-meter-wrap" id="ghost-meter-wrap">
-        <div class="ghost-meter-icon">鬼</div>
-        <div class="ghost-meter-bar-track">
-          <div id="ghost-meter-fill" class="ghost-meter-fill" style="width: 0%;"></div>
-        </div>
-        <div class="ghost-meter-text" id="ghost-meter-text">GHOST STANCE [V]</div>
-      </div>
-    </div>
-
-    <!-- Top Center: Objective & Level Banner -->
-    <div class="hud-stage-banner" id="stage-banner">
-      <div class="stage-kanji" id="stage-kanji">対馬の冥人</div>
-      <div class="stage-title" id="stage-title">LEVEL 1: KOMODA BEACH SKIRMISH</div>
-      <div class="stage-sub" id="stage-sub">Defeat all Mongol invaders to liberate the outpost</div>
-      <div class="stage-enemies-count" id="stage-enemies">ENEMIES REMAINING: <span>3</span></div>
-    </div>
-
-    <!-- Top Right: Supplies, Points, & Menu Controls -->
-    <div class="hud-top-right">
-      <div class="resource-badge">
-        <span class="resource-icon">🪙</span>
-        <span class="resource-label">SUPPLIES:</span>
-        <span class="resource-val" id="supplies-val">150</span>
-      </div>
-      <div class="resource-badge">
-        <span class="resource-icon">⚡</span>
-        <span class="resource-label">TECHNIQUE PTS:</span>
-        <span class="resource-val" id="technique-val">1</span>
-      </div>
-      <div class="top-buttons">
-        <button id="btn-shrine" class="hud-btn"><span class="btn-icon">⛩️</span> SHRINE / UPGRADES [M]</button>
-        <button id="btn-kurosawa" class="hud-btn"><span class="btn-icon">🎬</span> KUROSAWA MODE [K]</button>
-        <button id="btn-sound" class="hud-btn"><span class="btn-icon">🔊</span> AUDIO</button>
-        <button id="btn-help" class="hud-btn"><span class="btn-icon">📜</span> CONTROLS</button>
-      </div>
-    </div>
-
-    <!-- Center Boss / Duel Health Bar (Visible in Boss Fights / 1v1 Duels) -->
-    <div id="boss-hud" class="boss-hud hidden">
-      <div class="boss-title-wrap">
-        <div class="boss-kanji" id="boss-kanji">蒙古軍総督</div>
-        <div class="boss-name" id="boss-name">GENERAL KHOTUN KHAN</div>
-      </div>
-      <div class="boss-health-track">
-        <div id="boss-health-bar" class="boss-health-fill" style="width: 100%;"></div>
-        <div id="boss-health-ghost" class="boss-health-ghost" style="width: 100%;"></div>
-      </div>
-      <div class="boss-posture-track">
-        <div id="boss-posture-bar" class="boss-posture-fill" style="width: 0%;"></div>
-      </div>
-      <div class="boss-stance-counter" id="boss-stance-counter">STANCE WEAKNESS: <span id="boss-weakness">WATER STANCE</span></div>
-    </div>
-
-    <!-- Floating Combat Alerts (Perfect Parry, Stance Advantage, etc) -->
-    <div id="combat-alerts" class="combat-alerts"></div>
-
-    <!-- Bottom Left: Stance Selector Wheel & Hotkeys -->
-    <div class="hud-stances-container">
-      <div class="stance-title">KATANA STANCE <span class="sub-hint">(Keys 1 - 4)</span></div>
-      <div class="stances-grid">
-        <div class="stance-card active" id="stance-stone" data-stance="stone">
-          <div class="stance-key">1</div>
-          <div class="stance-kanji">岩</div>
-          <div class="stance-info">
-            <div class="stance-name">STONE</div>
-            <div class="stance-effective">Vs. Swordsmen</div>
+    <!-- Overlay UI Layer -->
+    <div id="ui-layer">
+      <!-- Top Battle HUD (Visible during gameplay) -->
+      <div id="battle-hud" class="hud-container hidden">
+        <div class="hud-top-bar">
+          <div class="match-timer-badge">
+            <span class="timer-icon">⏱</span>
+            <span id="match-timer">03:00</span>
+          </div>
+          <div class="hud-controls-hint">
+            <span>[ESC] Pause</span>
+            <span>[H] Hitbox Debug</span>
           </div>
         </div>
-        <div class="stance-card" id="stance-water" data-stance="water">
-          <div class="stance-key">2</div>
-          <div class="stance-kanji">水</div>
-          <div class="stance-info">
-            <div class="stance-name">WATER</div>
-            <div class="stance-effective">Vs. Shields</div>
-          </div>
+
+        <div id="player-hud-cards" class="hud-cards-grid">
+          <!-- Fighter cards generated dynamically in JS -->
         </div>
-        <div class="stance-card" id="stance-wind" data-stance="wind">
-          <div class="stance-key">3</div>
-          <div class="stance-kanji">風</div>
-          <div class="stance-info">
-            <div class="stance-name">WIND</div>
-            <div class="stance-effective">Vs. Spears</div>
+      </div>
+
+      <!-- Center Announcer Banner -->
+      <div id="announcer-banner" class="announcer-banner hidden">
+        <h1 id="announcer-text" class="announcer-title">BRAWL!</h1>
+        <p id="announcer-subtitle" class="announcer-sub"></p>
+      </div>
+
+      <!-- Screen: Title / Main Menu -->
+      <div id="title-screen" class="screen-panel active">
+        <div class="title-content">
+          <div class="logo-wrapper">
+            <div class="logo-badge">ULTIMATE 2D FIGHTER</div>
+            <h1 class="game-logo">BRAWL<span class="text-accent">LEGENDS</span></h1>
+            <p class="game-tagline">Arena Pertarungan 4 Legenda Tanpa Batas</p>
           </div>
-        </div>
-        <div class="stance-card" id="stance-moon" data-stance="moon">
-          <div class="stance-key">4</div>
-          <div class="stance-kanji">月</div>
-          <div class="stance-info">
-            <div class="stance-name">MOON</div>
-            <div class="stance-effective">Vs. Brutes</div>
+
+          <div class="menu-buttons-group">
+            <button id="btn-play-brawl" class="btn btn-primary btn-glow">
+              <span class="btn-icon">⚔️</span>
+              <span class="btn-text">BRAWL (MULTIPLAYER / AI)</span>
+            </button>
+            <button id="btn-play-training" class="btn btn-secondary">
+              <span class="btn-icon">🎯</span>
+              <span class="btn-text">TRAINING / PRACTICE</span>
+            </button>
+            <button id="btn-controls-guide" class="btn btn-tertiary">
+              <span class="btn-icon">🎮</span>
+              <span class="btn-text">KONTROL & PANDUAN</span>
+            </button>
+            <button id="btn-open-settings" class="btn btn-tertiary">
+              <span class="btn-icon">⚙️</span>
+              <span class="btn-text">PENGATURAN</span>
+            </button>
+          </div>
+
+          <div class="quick-roster-preview">
+            <div class="roster-avatar valravn" title="Valravn"><span>Valravn</span></div>
+            <div class="roster-avatar ignis" title="Ignis"><span>Ignis</span></div>
+            <div class="roster-avatar astrid" title="Astrid"><span>Astrid</span></div>
+            <div class="roster-avatar titanus" title="Titanus"><span>Titanus</span></div>
           </div>
         </div>
       </div>
-    </div>
 
-    <!-- Bottom Right: Mythic Techniques & Ghost Weapons -->
-    <div class="hud-skills-container">
-      <div class="skills-grid">
-        <div class="skill-card" id="skill-kunai" title="Throw Kunai to stagger foes">
-          <div class="skill-icon">🗡️</div>
-          <div class="skill-name">KUNAI</div>
-          <div class="skill-key">[F]</div>
-          <div class="skill-count" id="kunai-count">3/3</div>
+      <!-- Screen: Character & Stage Selection -->
+      <div id="select-screen" class="screen-panel hidden">
+        <div class="select-header">
+          <button id="btn-select-back" class="btn-back">‹ KEMBALI</button>
+          <h2 class="select-title">PILIH LEGENDA & ARENA</h2>
+          <div class="rules-summary">
+            <label>Mode: 
+              <select id="select-game-mode" class="select-dropdown">
+                <option value="stock" selected>Stock Battle (3 Nyawa)</option>
+                <option value="timed">Timed Battle (3 Menit)</option>
+                <option value="training">Training Arena</option>
+              </select>
+            </label>
+          </div>
         </div>
-        <div class="skill-card" id="skill-smoke" title="Drop Smoke Bomb for stealth kills">
-          <div class="skill-icon">💨</div>
-          <div class="skill-name">SMOKE</div>
-          <div class="skill-key">[G]</div>
-          <div class="skill-count" id="smoke-count">2/2</div>
-        </div>
-        <div class="skill-card" id="skill-heavenly" title="Unblockable Lightning Slash (Cost 1 Resolve)">
-          <div class="skill-icon">⚡</div>
-          <div class="skill-name">HEAVENLY STRIKE</div>
-          <div class="skill-key">[R]</div>
-          <div class="skill-cost">1 🟡</div>
-        </div>
-        <div class="skill-card" id="skill-wrath" title="Triple Lethal Teleport Slash (Cost 3 Resolve)">
-          <div class="skill-icon">🌪️</div>
-          <div class="skill-name">DANCE OF WRATH</div>
-          <div class="skill-key">[T]</div>
-          <div class="skill-cost">3 🟡</div>
-        </div>
-      </div>
-    </div>
 
-    <!-- Bottom Center: Controls Quick Bar -->
-    <div class="hud-controls-bar">
-      <span><kbd>WASD</kbd> Move</span>
-      <span><kbd>LMB / J</kbd> Fast Slash</span>
-      <span><kbd>RMB / K</kbd> Heavy Stance Strike</span>
-      <span><kbd>Space / Q</kbd> Parry / Block</span>
-      <span><kbd>Shift</kbd> Dodge / Roll</span>
-      <span><kbd>E</kbd> Heal</span>
-      <span><kbd>1-4</kbd> Stance</span>
-      <span><kbd>V</kbd> Ghost Stance</span>
-    </div>
-  </div>
+        <div class="select-main-grid">
+          <!-- 4 Player Slots Configuration -->
+          <div class="slots-section">
+            <div class="slots-grid" id="slots-container">
+              <!-- Rendered dynamically for P1, P2, P3, P4 -->
+            </div>
+          </div>
 
-  <!-- Standoff Duel Cinematic Overlay -->
-  <div id="standoff-overlay" class="standoff-overlay hidden">
-    <div class="standoff-letterbox-top"></div>
-    <div class="standoff-letterbox-bottom"></div>
-    <div class="standoff-content">
-      <div class="standoff-kanji">一 騎 討 ち</div>
-      <div class="standoff-title">STANDOFF</div>
-      <div class="standoff-instruction" id="standoff-prompt">HOLD <kbd class="glow-kbd">SPACE</kbd> OR <kbd class="glow-kbd">LEFT CLICK</kbd> TO DRAW BLADE</div>
-      <div class="standoff-timer-ring">
-        <div class="standoff-streak-counter" id="standoff-streak">STREAK: 0/3</div>
-      </div>
-      <div class="standoff-hint">Release the instant your opponent strikes! (Do not flinch on feints)</div>
-    </div>
-  </div>
-
-  <!-- Upgrade Shrine / RPG Modal -->
-  <div id="shrine-modal" class="modal-overlay hidden">
-    <div class="shrine-window">
-      <div class="shrine-header">
-        <div class="shrine-title-wrap">
-          <span class="shrine-kanji">八幡神宮</span>
-          <h2>GOLDEN TEMPLE SHRINE & ARMORY</h2>
-          <p>Channel your spirit, forge sharper steel, and unlock legendary samurai techniques.</p>
-        </div>
-        <button id="close-shrine" class="btn-close">&times;</button>
-      </div>
-
-      <div class="shrine-tabs">
-        <button class="shrine-tab active" data-tab="techniques">⚔️ SAMURAI & GHOST TECHNIQUES</button>
-        <button class="shrine-tab" data-tab="armory">🛡️ SAKAI ARMORY & KATANA</button>
-        <button class="shrine-tab" data-tab="charms">🪬 SACRED CHARMS</button>
-      </div>
-
-      <div class="shrine-body">
-        <!-- Tab 1: Techniques -->
-        <div class="tab-content active" id="tab-techniques">
-          <div class="tech-grid">
-            <div class="tech-card" id="tech-perfect-parry">
-              <div class="tech-icon">⚡</div>
-              <div class="tech-details">
-                <div class="tech-name">Perfect Parry Window Expansion</div>
-                <div class="tech-desc">Increases the perfect parry timing window by +30% and heals +10% HP on riposte.</div>
-                <div class="tech-req">Cost: 1 Technique Point</div>
+          <!-- Character Detail & Stage Selector Sidebar -->
+          <div class="preview-sidebar">
+            <div id="character-detail-card" class="character-detail-card">
+              <div class="char-card-header">
+                <div class="char-element-tag" id="char-element">SHADOW</div>
+                <h3 id="char-name" class="char-name">VALRAVN</h3>
+                <p id="char-title" class="char-subtitle">The Shadow Assassin</p>
               </div>
-              <button class="btn-unlock" data-tech="perfectParry">UPGRADE (1 TP)</button>
-            </div>
-
-            <div class="tech-card" id="tech-water-flurry">
-              <div class="tech-icon">🌊</div>
-              <div class="tech-details">
-                <div class="tech-name">Water Stance: Surging Flurry</div>
-                <div class="tech-desc">Adds a 4th heavy slash that instantly shatters Mongol shields and staggers surrounding enemies.</div>
-                <div class="tech-req">Cost: 1 Technique Point</div>
+              <div class="char-portrait-container">
+                <canvas id="char-preview-canvas" width="240" height="240"></canvas>
               </div>
-              <button class="btn-unlock" data-tech="waterFlurry">UPGRADE (1 TP)</button>
-            </div>
-
-            <div class="tech-card" id="tech-wind-typhoon">
-              <div class="tech-icon">🌪️</div>
-              <div class="tech-details">
-                <div class="tech-name">Wind Stance: Typhoon Kick</div>
-                <div class="tech-desc">Hold Heavy Strike in Wind Stance to deliver a lethal kick that launches spearmen into obstacles.</div>
-                <div class="tech-req">Cost: 1 Technique Point</div>
+              <div class="char-stats-box">
+                <div class="stat-row">
+                  <span>Speed:</span>
+                  <div class="stat-bar"><div class="stat-fill" id="stat-speed" style="width: 90%;"></div></div>
+                </div>
+                <div class="stat-row">
+                  <span>Attack:</span>
+                  <div class="stat-bar"><div class="stat-fill" id="stat-attack" style="width: 60%;"></div></div>
+                </div>
+                <div class="stat-row">
+                  <span>Defense:</span>
+                  <div class="stat-bar"><div class="stat-fill" id="stat-defense" style="width: 50%;"></div></div>
+                </div>
+                <div class="stat-row">
+                  <span>Dexterity:</span>
+                  <div class="stat-bar"><div class="stat-fill" id="stat-dex" style="width: 80%;"></div></div>
+                </div>
               </div>
-              <button class="btn-unlock" data-tech="windTyphoon">UPGRADE (1 TP)</button>
+              <p class="char-lore-text" id="char-desc">Pembunuh bayangan lincah bersenjatakan belati ganda. Bergerak secepat kilat dengan kombo bertubi-tubi.</p>
             </div>
 
-            <div class="tech-card" id="tech-moon-cleave">
-              <div class="tech-icon">🌙</div>
-              <div class="tech-details">
-                <div class="tech-name">Moon Stance: Whirlwind Cleave</div>
-                <div class="tech-desc">Increases 360-degree spin radius and deals double posture damage to Mongol Brutes.</div>
-                <div class="tech-req">Cost: 2 Technique Points</div>
+            <!-- Stage Carousel Selector -->
+            <div class="stage-selector-card">
+              <span class="stage-label">PILIH ARENA:</span>
+              <div class="stage-picker">
+                <button id="btn-prev-stage" class="stage-arrow">‹</button>
+                <div class="stage-info">
+                  <h4 id="current-stage-name">Sky Citadel</h4>
+                  <p id="current-stage-desc">Kuil melayang di atas awan dengan 2 platform samping.</p>
+                </div>
+                <button id="btn-next-stage" class="stage-arrow">›</button>
               </div>
-              <button class="btn-unlock" data-tech="moonCleave">UPGRADE (2 TP)</button>
             </div>
 
-            <div class="tech-card" id="tech-standoff-mastery">
-              <div class="tech-icon">🗡️</div>
-              <div class="tech-details">
-                <div class="tech-name">Standoff Streak Mastery</div>
-                <div class="tech-desc">Allows executing up to 3 consecutive enemies in a single standoff initiation.</div>
-                <div class="tech-req">Cost: 2 Technique Points</div>
-              </div>
-              <button class="btn-unlock" data-tech="standoffMastery">UPGRADE (2 TP)</button>
-            </div>
-
-            <div class="tech-card" id="tech-iron-will">
-              <div class="tech-icon">❤️‍🔥</div>
-              <div class="tech-details">
-                <div class="tech-name">Iron Will (Revival)</div>
-                <div class="tech-desc">When taking fatal damage, spend 2 Resolve to instantly revive with 50% health.</div>
-                <div class="tech-req">Cost: 3 Technique Points</div>
-              </div>
-              <button class="btn-unlock" data-tech="ironWill">UPGRADE (3 TP)</button>
-            </div>
-          </div>
-        </div>
-
-        <!-- Tab 2: Armory & Katana -->
-        <div class="tab-content" id="tab-armory">
-          <div class="armory-section">
-            <div class="armory-card">
-              <h3>🗡️ SAKAI CLAN STEEL KATANA</h3>
-              <p>Level: <span id="katana-level">1</span> / 5</p>
-              <p>Damage: <span id="katana-dmg">+0%</span> | Critical Chance: <span id="katana-crit">10%</span></p>
-              <button id="btn-upgrade-katana" class="btn-action">FORGE KATANA (100 Supplies)</button>
-            </div>
-
-            <div class="armory-card">
-              <h3>🛡️ SAKAI CLAN ARMOR (Equipped)</h3>
-              <p>Bonus: +35 Max Health, +15% Melee Damage, +1 Standoff Streak.</p>
-              <button class="btn-action btn-equip" data-armor="sakai" disabled>EQUIPPED</button>
-            </div>
-
-            <div class="armory-card">
-              <h3>🥷 GHOST ARMOR</h3>
-              <p>Bonus: Requires 1 less kill for Ghost Stance, kills have 30% chance to terrify nearby foes.</p>
-              <button class="btn-action btn-equip" data-armor="ghost">EQUIP ARMOR</button>
-            </div>
-
-            <div class="armory-card">
-              <h3>🥋 RONIN ATTIRE</h3>
-              <p>Bonus: +30% Melee Attack speed, +20% Movement Speed.</p>
-              <button class="btn-action btn-equip" data-armor="ronin">EQUIP ARMOR</button>
-            </div>
-          </div>
-        </div>
-
-        <!-- Tab 3: Charms -->
-        <div class="tab-content" id="tab-charms">
-          <div class="charms-grid">
-            <div class="charm-item active-charm" data-charm="amaterasu">
-              <div class="charm-icon">☀️</div>
-              <div class="charm-name">Charm of Amaterasu</div>
-              <div class="charm-desc">Killing enemies restores a moderate amount of Health (+20 HP).</div>
-              <button class="btn-charm-toggle">EQUIPPED</button>
-            </div>
-            <div class="charm-item" data-charm="inari">
-              <div class="charm-icon">🦊</div>
-              <div class="charm-name">Charm of Inari</div>
-              <div class="charm-desc">Increases Supplies and Technique experience gained from battles by +50%.</div>
-              <button class="btn-charm-toggle">EQUIP</button>
-            </div>
-            <div class="charm-item" data-charm="lightning">
-              <div class="charm-icon">⚡</div>
-              <div class="charm-name">Charm of Heavenly Vengeance</div>
-              <div class="charm-desc">Perfect Parries trigger a thunder shockwave that stuns surrounding foes.</div>
-              <button class="btn-charm-toggle">EQUIP</button>
-            </div>
+            <button id="btn-start-fight" class="btn btn-primary btn-fight-start">
+              <span class="btn-icon">⚡</span>
+              <span class="btn-text">MULAI PERTARUNGAN!</span>
+            </button>
           </div>
         </div>
       </div>
 
-      <div class="shrine-footer">
-        <div class="footer-stats">
-          <span>Supplies: <strong id="modal-supplies">150</strong></span>
-          <span>Technique Points: <strong id="modal-tp">1</strong></span>
-        </div>
-        <button id="btn-close-shrine-bottom" class="btn-secondary">RETURN TO BATTLE (ESC)</button>
-      </div>
-    </div>
-  </div>
+      <!-- Screen: Victory / Results -->
+      <div id="results-screen" class="screen-panel hidden">
+        <div class="results-container">
+          <div class="victory-banner">
+            <h2 class="victory-headline">PEMENANG BRAWL!</h2>
+            <h1 id="winner-name" class="winner-hero-name">PLAYER 1 (VALRAVN)</h1>
+          </div>
 
-  <!-- Victory / Stage Clear Screen -->
-  <div id="victory-modal" class="modal-overlay hidden">
-    <div class="victory-card">
-      <div class="victory-kanji">勝 利</div>
-      <h2 id="victory-title">OUTPOST LIBERATED!</h2>
-      <p id="victory-sub">The Mongols have been driven back from Tsushima's shores.</p>
-      <div class="victory-rewards">
-        <div class="reward-pill"><span>🪙 +120 Supplies</span></div>
-        <div class="reward-pill"><span>⚡ +1 Technique Point</span></div>
-        <div class="reward-pill"><span>⚔️ Legend Rank Increased</span></div>
-      </div>
-      <div class="victory-actions">
-        <button id="btn-open-shrine-victory" class="btn-secondary">⛩️ VISIT SHRINE</button>
-        <button id="btn-next-level" class="btn-primary">CONTINUE TO NEXT PROVINCE (ENTER)</button>
-      </div>
-    </div>
-  </div>
+          <div class="winner-showcase">
+            <canvas id="winner-canvas" width="300" height="300"></canvas>
+          </div>
 
-  <!-- Game Over Screen -->
-  <div id="gameover-modal" class="modal-overlay hidden">
-    <div class="gameover-card">
-      <div class="gameover-kanji">討 死</div>
-      <h2>FALLEN IN BATTLE</h2>
-      <p>A samurai never truly falls as long as Tsushima's wind remembers his honor.</p>
-      <div class="gameover-actions">
-        <button id="btn-retry" class="btn-primary">RETRY BATTLE (ENTER)</button>
-      </div>
-    </div>
-  </div>
+          <div class="stats-table-wrapper">
+            <table class="match-stats-table">
+              <thead>
+                <tr>
+                  <th>Fighter</th>
+                  <th>KOs</th>
+                  <th>Falls</th>
+                  <th>Damage Diberikan</th>
+                  <th>Damage Diterima</th>
+                </tr>
+              </thead>
+              <tbody id="match-stats-body">
+                <!-- Populated dynamically -->
+              </tbody>
+            </table>
+          </div>
 
-  <!-- Controls Guide Modal -->
-  <div id="controls-modal" class="modal-overlay hidden">
-    <div class="controls-card">
-      <h2>📜 SAMURAI COMBAT GUIDE</h2>
-      <div class="guide-grid">
-        <div class="guide-col">
-          <h3>⚔️ Basic Controls</h3>
-          <ul>
-            <li><strong>WASD / Arrow Keys</strong>: Move Jin Sakai</li>
-            <li><strong>Left Click / J</strong>: Fast Katana Slash</li>
-            <li><strong>Right Click / K</strong>: Heavy Stance Strike (Breaks Guard)</li>
-            <li><strong>Space / Q</strong>: Guard & Perfect Parry (Time it with the blue glint!)</li>
-            <li><strong>Left Shift</strong>: Dodge / Evade Roll (Evades red unblockable attacks)</li>
-            <li><strong>E</strong>: Heal using 1 Resolve orb</li>
-          </ul>
-        </div>
-        <div class="guide-col">
-          <h3>🥋 4 Combat Stances</h3>
-          <ul>
-            <li><strong>[1] Stone (Iwa)</strong>: Critical thrusts against <em>Swordsmen & Ronin</em>.</li>
-            <li><strong>[2] Water (Mizu)</strong>: Shield-breaker flurry against <em>Shieldmen</em>.</li>
-            <li><strong>[3] Wind (Kaze)</strong>: Sweeping arcs and kick against <em>Spearmen</em>.</li>
-            <li><strong>[4] Moon (Tsuki)</strong>: 360-degree spin against <em>Mongol Brutes</em>.</li>
-          </ul>
-        </div>
-        <div class="guide-col">
-          <h3>⚡ Mythic Skills & Standoff</h3>
-          <ul>
-            <li><strong>[R] Heavenly Strike</strong>: High-speed unblockable lightning slash (1 Resolve).</li>
-            <li><strong>[T] Dance of Wrath</strong>: Teleports and slices 3 enemies (3 Resolve).</li>
-            <li><strong>[F] Kunai / [G] Smoke</strong>: Stuns or blinds crowds.</li>
-            <li><strong>[V] Ghost Stance</strong>: 1-hit kill fury when meter fills.</li>
-            <li><strong>Standoff</strong>: Hold Space/LMB, release right when the enemy charges!</li>
-          </ul>
+          <div class="results-actions">
+            <button id="btn-rematch" class="btn btn-primary">
+              <span class="btn-icon">🔄</span> REMATCH
+            </button>
+            <button id="btn-results-select" class="btn btn-secondary">
+              <span class="btn-icon">👥</span> GANTI KARAKTER
+            </button>
+            <button id="btn-results-menu" class="btn btn-tertiary">
+              <span class="btn-icon">🏠</span> MENU UTAMA
+            </button>
+          </div>
         </div>
       </div>
-      <button id="close-controls" class="btn-primary">RESUME BATTLE</button>
+
+      <!-- Modal: Controls & Guide -->
+      <div id="controls-modal" class="modal-backdrop hidden">
+        <div class="modal-box">
+          <div class="modal-header">
+            <h3>🎮 PANDUAN KONTROL & CARA BERMAIN</h3>
+            <button class="btn-close-modal" id="btn-close-controls">&times;</button>
+          </div>
+          <div class="modal-body">
+            <div class="controls-grid">
+              <div class="controls-column">
+                <h4>Player 1 (Keyboard Standar)</h4>
+                <div class="key-item"><span class="key-badge">A / D</span> Gerak Kiri / Kanan</div>
+                <div class="key-item"><span class="key-badge">W / Space</span> Lompat / Double Jump / Wall Jump</div>
+                <div class="key-item"><span class="key-badge">S</span> Turun Platform / Fast Fall</div>
+                <div class="key-item"><span class="key-badge">J</span> Serangan Ringan (Light Attack)</div>
+                <div class="key-item"><span class="key-badge">K</span> Serangan Berat / Signature (Heavy)</div>
+                <div class="key-item"><span class="key-badge">L / Shift</span> Dodge / Dash / Invulnerable</div>
+                <div class="key-item"><span class="key-badge">W + K (Air)</span> Up Recovery (Lompatan Penyelamat)</div>
+              </div>
+              <div class="controls-column">
+                <h4>Player 2 (Opsional / Lokal)</h4>
+                <div class="key-item"><span class="key-badge">Panah Kiri/Kanan</span> Gerak Kiri / Kanan</div>
+                <div class="key-item"><span class="key-badge">Panah Atas</span> Lompat</div>
+                <div class="key-item"><span class="key-badge">Panah Bawah</span> Turun Platform</div>
+                <div class="key-item"><span class="key-badge">Numpad 1 / 4</span> Serangan Ringan</div>
+                <div class="key-item"><span class="key-badge">Numpad 2 / 5</span> Serangan Berat</div>
+                <div class="key-item"><span class="key-badge">Numpad 3 / 6</span> Dodge / Dash</div>
+              </div>
+            </div>
+
+            <div class="brawl-mechanics-guide">
+              <h4>Tips Bertarung Ala Brawlhalla:</h4>
+              <ul>
+                <li><strong>Sistem Damage:</strong> Semakin tinggi % damage musuh (0% putih &rarr; 150%+ merah gelap), semakin jauh mereka terpental jika terkena serangan berat!</li>
+                <li><strong>Wall Cling & Jump:</strong> Sentuh dinding pulau melayang untuk meluncur dan tekan lompat untuk memanjat kembali ke arena.</li>
+                <li><strong>Air Recovery:</strong> Jika terlempar ke luar arena, gunakan Double Jump + Up Heavy (W+K di udara) untuk kembali ke daratan!</li>
+                <li><strong>Dodge Timing:</strong> Dodge memberikan kebal sekejap (invulnerability frames) dari serangan musuh.</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Modal: Settings -->
+      <div id="settings-modal" class="modal-backdrop hidden">
+        <div class="modal-box">
+          <div class="modal-header">
+            <h3>⚙️ PENGATURAN GAME</h3>
+            <button class="btn-close-modal" id="btn-close-settings">&times;</button>
+          </div>
+          <div class="modal-body">
+            <div class="setting-item">
+              <label for="slider-sfx-volume">Volume SFX / Suara Efek:</label>
+              <input type="range" id="slider-sfx-volume" min="0" max="1" step="0.05" value="0.8">
+            </div>
+            <div class="setting-item">
+              <label for="slider-bgm-volume">Volume Musik BGM:</label>
+              <input type="range" id="slider-bgm-volume" min="0" max="1" step="0.05" value="0.4">
+            </div>
+            <div class="setting-item checkbox-item">
+              <label><input type="checkbox" id="check-screen-shake" checked> Aktifkan Screen Shake (Getaran Layar)</label>
+            </div>
+            <div class="setting-item checkbox-item">
+              <label><input type="checkbox" id="check-particles" checked> Efek Partikel Penuh (Sparks, Smoke, Glow)</label>
+            </div>
+            <div class="setting-item checkbox-item">
+              <label><input type="checkbox" id="check-hitbox-debug"> Tampilkan Hitbox & Hurtbox (Debug Mode)</label>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Pause Menu Overlay -->
+      <div id="pause-modal" class="modal-backdrop hidden">
+        <div class="modal-box pause-box">
+          <h2>GAME DI-PAUSE</h2>
+          <div class="pause-menu-buttons">
+            <button id="btn-resume-game" class="btn btn-primary">LANJUTKAN [ESC]</button>
+            <button id="btn-pause-restart" class="btn btn-secondary">ULANGI MATCH</button>
+            <button id="btn-pause-select" class="btn btn-secondary">PILIH KARAKTER</button>
+            <button id="btn-pause-menu" class="btn btn-tertiary">MENU UTAMA</button>
+          </div>
+        </div>
+      </div>
+
     </div>
   </div>
 
   <!-- Game Scripts -->
   <script src="js/audio.js"></script>
-  <script src="js/stances.js"></script>
   <script src="js/particles.js"></script>
-  <script src="js/progression.js"></script>
-  <script src="js/models.js"></script>
+  <script src="js/stages.js"></script>
+  <script src="js/characters.js"></script>
+  <script src="js/physics.js"></script>
   <script src="js/ai.js"></script>
-  <script src="js/enemy.js"></script>
-  <script src="js/player.js"></script>
-  <script src="js/combat.js"></script>
+  <script src="js/input.js"></script>
   <script src="js/game.js"></script>
+  <script src="js/main.js"></script>
 </body>
 </html>

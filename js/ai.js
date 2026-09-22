@@ -1,216 +1,168 @@
-/* ==========================================================================
-   Ghost of Tsushima - Tactical AI & Smooth Non-Abrupt Difficulty Scaling
-   Smooth difficulty curve, squad coordination, stance counters, attack tokens
-   ========================================================================== */
+/**
+ * AI Bot Controller for Brawl Legends
+ * Handles off-stage recovery, navigation, attack combos, and defensive dodging.
+ */
 
-class DifficultyDirector {
-  constructor() {
-    this.currentLevel = 1;
+class AIController {
+  constructor(fighter) {
+    this.fighter = fighter;
+    this.decisionTimer = 0;
+    this.currentInput = this.createEmptyInput();
+    this.target = null;
+    this.targetSwitchTimer = 0;
   }
 
-  // --- Smooth Scaling Parameters ---
-  getLevelConfig(level) {
-    this.currentLevel = level;
-
-    // 1. Smooth Multipliers (No sudden spikes)
-    const hpMultiplier = 1.0 + (level - 1) * 0.08;       // +8% HP per level
-    const dmgMultiplier = 1.0 + (level - 1) * 0.06;      // +6% Dmg per level
-    const postureMultiplier = 1.0 + (level - 1) * 0.07;  // +7% Posture per level
-
-    // 2. Reaction & Telegraph Pacing (in seconds)
-    // Smoothly reduces from 0.48s (generous) to 0.24s (mastery)
-    const telegraphTime = Math.max(0.24, 0.48 - (level - 1) * 0.015);
-    const attackCooldown = Math.max(0.8, 2.2 - (level - 1) * 0.09);
-
-    // 3. Tactical Aggression Tokens (How many enemies attack simultaneously)
-    // Level 1-4: 1 attacker at a time (generous dueling)
-    // Level 5-8: 2 flankers
-    // Level 9+: 3 coordinated squad attackers
-    const maxAttackTokens = Math.min(3, 1 + Math.floor((level - 1) / 4));
-
-    // 4. Enemy Compositions per Level
-    const composition = this.getCompositionForLevel(level);
-
+  createEmptyInput() {
     return {
-      level: level,
-      hpMult: hpMultiplier,
-      dmgMult: dmgMultiplier,
-      postureMult: postureMultiplier,
-      telegraphTime: telegraphTime,
-      attackCooldown: attackCooldown,
-      maxAttackTokens: maxAttackTokens,
-      title: composition.title,
-      sub: composition.sub,
-      kanji: composition.kanji,
-      theme: composition.theme,
-      isBoss: composition.isBoss,
-      enemies: composition.enemies
+      left: false,
+      right: false,
+      up: false,
+      down: false,
+      jumpJustPressed: false,
+      lightJustPressed: false,
+      heavyJustPressed: false,
+      dodgeJustPressed: false
     };
   }
 
-  getCompositionForLevel(level) {
-    switch(level) {
-      case 1:
-        return {
-          title: 'LEVEL 1: KOMODA BEACH RECON',
-          sub: 'Master the Stone Stance and Perfect Parry against Mongol Swordsmen.',
-          kanji: '小茂田の戦い',
-          theme: 'autumn',
-          isBoss: false,
-          enemies: [
-            { type: 'swordsman', x: 0, z: -8 }
-          ]
-        };
-      case 2:
-        return {
-          title: 'LEVEL 2: GOLDEN FOREST AMBUSH',
-          sub: 'Mongol Shields have arrived. Switch to Water Stance [2] to break guards.',
-          kanji: '黄金の森',
-          theme: 'autumn',
-          isBoss: false,
-          enemies: [
-            { type: 'swordsman', x: -4, z: -8 },
-            { type: 'shieldman', x: 3, z: -9 }
-          ]
-        };
-      case 3:
-        return {
-          title: 'LEVEL 3: IZUHARA BAMBOO GROVE',
-          sub: 'Mongol Spearmen join the fray. Switch to Wind Stance [3] to deflect spears.',
-          kanji: '厳原の竹林',
-          theme: 'sakura',
-          isBoss: false,
-          enemies: [
-            { type: 'swordsman', x: -5, z: -7 },
-            { type: 'shieldman', x: 0, z: -10 },
-            { type: 'spearman', x: 5, z: -8 }
-          ]
-        };
-      case 4:
-        return {
-          title: 'LEVEL 4: GOLDEN TEMPLE OUTSKIRTS',
-          sub: 'Coordinated patrol of shield and spear units. Adapt your stances swiftly.',
-          kanji: '金田城の道',
-          theme: 'autumn',
-          isBoss: false,
-          enemies: [
-            { type: 'shieldman', x: -5, z: -9 },
-            { type: 'spearman', x: -1, z: -11 },
-            { type: 'shieldman', x: 4, z: -9 },
-            { type: 'swordsman', x: 7, z: -7 }
-          ]
-        };
-      case 5:
-        return {
-          title: 'LEVEL 5: YARIKAWA STRONGHOLD GATE',
-          sub: 'A Mongol Brute appears! Switch to Moon Stance [4] to stagger heavy armor.',
-          kanji: '槍川の戦い',
-          theme: 'crimson',
-          isBoss: false,
-          enemies: [
-            { type: 'brute', x: 0, z: -11 },
-            { type: 'spearman', x: -6, z: -8 },
-            { type: 'shieldman', x: 6, z: -8 }
-          ]
-        };
-      case 6:
-        return {
-          title: 'LEVEL 6: OMI RIVER CROSSING',
-          sub: 'Mixed vanguard squad. Use Ghost Weapons (Kunai [F] & Smoke [G]) to control the battlefield.',
-          kanji: '近江の渡守',
-          theme: 'sakura',
-          isBoss: false,
-          enemies: [
-            { type: 'brute', x: -4, z: -10 },
-            { type: 'shieldman', x: 0, z: -8 },
-            { type: 'spearman', x: 4, z: -9 },
-            { type: 'swordsman', x: 7, z: -7 }
-          ]
-        };
-      case 7:
-        return {
-          title: 'LEVEL 7: CASTLE KANEDA DEFENSES',
-          sub: 'Armored Mongol elites. Watch out for unblockable Red Glint attacks!',
-          kanji: '金田城の攻防',
-          theme: 'autumn',
-          isBoss: false,
-          enemies: [
-            { type: 'brute', x: -5, z: -10 },
-            { type: 'brute', x: 5, z: -10 },
-            { type: 'spearman', x: -2, z: -8 },
-            { type: 'shieldman', x: 2, z: -8 }
-          ]
-        };
-      case 8:
-        return {
-          title: 'LEVEL 8: UMUGI COVE SMUGGLERS',
-          sub: 'Straw Hat Ronin have turned traitor. Master swordsmen with lethal parries.',
-          kanji: '卯麦の波止場',
-          theme: 'night',
-          isBoss: false,
-          enemies: [
-            { type: 'ronin', x: -3, z: -8 },
-            { type: 'ronin', x: 3, z: -8 },
-            { type: 'shieldman', x: 0, z: -11 }
-          ]
-        };
-      case 9:
-        return {
-          title: 'LEVEL 9: CRIMSON AUTUMN GROVE',
-          sub: 'Elite Ronin assassins coordinated with heavy Brutes. Use Heavenly Strike [R]!',
-          kanji: '紅葉の暗殺者',
-          theme: 'crimson',
-          isBoss: false,
-          enemies: [
-            { type: 'ronin', x: -5, z: -9 },
-            { type: 'ronin', x: 5, z: -9 },
-            { type: 'brute', x: 0, z: -12 },
-            { type: 'spearman', x: 0, z: -7 }
-          ]
-        };
-      case 10:
-        return {
-          title: 'LEVEL 10: DUEL OF THE AUTUMN LEAVES',
-          sub: 'BOSS DUEL: General Khotun Khan. Clash blades and liberate Tsushima!',
-          kanji: '対馬の総督対決',
-          theme: 'crimson',
-          isBoss: true,
-          enemies: [
-            { type: 'boss', x: 0, z: -9 }
-          ]
-        };
-      default:
-        // Endless Master Waves (Level 11+)
-        return {
-          title: `MASTER TSUSHIMA - WAVE ${level}`,
-          sub: 'Endless Mongol Reinforcements. Test your samurai mastery!',
-          kanji: '名誉の戦い',
-          theme: level % 3 === 0 ? 'crimson' : (level % 2 === 0 ? 'night' : 'autumn'),
-          isBoss: level % 5 === 0,
-          enemies: this.generateEndlessWave(level)
-        };
+  update(stage, fighters) {
+    const input = this.createEmptyInput();
+    const self = this.fighter;
+
+    if (self.isDead || self.isRespawning) {
+      return input;
     }
+
+    // Pick / update target
+    this.targetSwitchTimer--;
+    if (!this.target || this.target.isDead || this.targetSwitchTimer <= 0) {
+      this.target = this.findBestTarget(fighters);
+      this.targetSwitchTimer = 60 + Math.floor(Math.random() * 60);
+    }
+
+    const diff = self.botDifficulty || 'medium';
+    const mainPlat = stage.platforms.find(p => p.type === 'solid') || stage.platforms[0];
+    const stageCenterX = mainPlat ? mainPlat.x + mainPlat.width / 2 : 640;
+    const stageLeftX = mainPlat ? mainPlat.x : 340;
+    const stageRightX = mainPlat ? mainPlat.x + mainPlat.width : 940;
+    const stageY = mainPlat ? mainPlat.y : 440;
+
+    const isOffstage = (self.x < stageLeftX - 30 || self.x > stageRightX + 30 || self.y > stageY + 20);
+
+    // =========================================================================
+    // 1. CRITICAL PRIORITY: OFFSTAGE RECOVERY
+    // =========================================================================
+    if (isOffstage) {
+      // Steer back towards center
+      if (self.x < stageCenterX) {
+        input.right = true;
+      } else {
+        input.left = true;
+      }
+
+      // If wall sliding, perform wall jump!
+      if (self.isWallSliding) {
+        input.jumpJustPressed = true;
+      }
+      // If falling below stage level
+      else if (self.y > stageY - 40) {
+        if (self.jumpsLeft > 0 && self.vy > 1) {
+          input.jumpJustPressed = true;
+        } else if (!self.hasUsedRecovery && self.vy > 0) {
+          // Use Up Recovery
+          input.up = true;
+          input.heavyJustPressed = true;
+        }
+      }
+      return input;
+    }
+
+    // =========================================================================
+    // 2. COMBAT & TARGET TRACKING
+    // =========================================================================
+    if (!this.target) return input;
+
+    const dx = this.target.x - self.x;
+    const dy = this.target.y - self.y;
+    const dist = Math.hypot(dx, dy);
+
+    // Face target
+    if (dx > 20) {
+      input.right = true;
+    } else if (dx < -20) {
+      input.left = true;
+    }
+
+    // Vertical Navigation
+    if (dy < -60) {
+      // Target is above on high platform
+      if (self.onGround || (self.jumpsLeft > 0 && Math.random() > 0.4)) {
+        input.jumpJustPressed = true;
+      }
+    } else if (dy > 60 && self.canDropPlatform) {
+      // Target is below on lower stage
+      input.down = true;
+    }
+
+    // =========================================================================
+    // 3. DEFENSIVE DODGE LOGIC
+    // =========================================================================
+    const dodgeChance = diff === 'hard' ? 0.4 : (diff === 'medium' ? 0.2 : 0.05);
+    if (this.target.isAttacking && dist < 90 && Math.random() < dodgeChance) {
+      input.dodgeJustPressed = true;
+      return input;
+    }
+
+    // =========================================================================
+    // 4. ATTACK LOGIC
+    // =========================================================================
+    const attackRange = 75;
+    if (Math.abs(dx) <= attackRange && Math.abs(dy) <= 60) {
+      const isTargetHighPercent = this.target.damagePercent > 70;
+      const attackDecision = Math.random();
+
+      // Heavy / Signature Attack for KO
+      if (isTargetHighPercent && attackDecision < (diff === 'hard' ? 0.75 : 0.5)) {
+        input.heavyJustPressed = true;
+        if (Math.random() > 0.5) {
+          input.left = dx < 0;
+          input.right = dx > 0;
+        } else if (Math.random() > 0.5) {
+          input.down = true;
+        } else {
+          input.up = true;
+        }
+      }
+      // Light Combo Attacks
+      else if (attackDecision < (diff === 'easy' ? 0.4 : 0.85)) {
+        input.lightJustPressed = true;
+        if (!self.onGround) {
+          if (dy > 15) input.down = true;
+          else if (dy < -15) input.up = true;
+        } else {
+          if (Math.random() > 0.6) input.down = true;
+          else if (Math.random() > 0.6) input.up = true;
+        }
+      }
+    }
+
+    return input;
   }
 
-  generateEndlessWave(level) {
-    if (level % 5 === 0) {
-      return [{ type: 'boss', x: 0, z: -9 }, { type: 'ronin', x: -5, z: -8 }, { type: 'ronin', x: 5, z: -8 }];
+  findBestTarget(fighters) {
+    let closest = null;
+    let minDist = Infinity;
+
+    for (let f of fighters) {
+      if (f === this.fighter || f.isDead || f.isRespawning) continue;
+      const d = Math.hypot(f.x - this.fighter.x, f.y - this.fighter.y);
+      if (d < minDist) {
+        minDist = d;
+        closest = f;
+      }
     }
-    const pool = ['swordsman', 'shieldman', 'spearman', 'brute', 'ronin'];
-    const count = Math.min(6, 3 + Math.floor((level - 10) / 2));
-    const result = [];
-    for (let i = 0; i < count; i++) {
-      const type = pool[Math.floor(Math.random() * pool.length)];
-      const angle = (i / count) * Math.PI * 1.5 + Math.PI * 0.75;
-      result.push({
-        type: type,
-        x: Math.cos(angle) * 10,
-        z: Math.sin(angle) * 10
-      });
-    }
-    return result;
+    return closest;
   }
 }
 
-// Global Difficulty Director
-window.difficultyDirector = new DifficultyDirector();
+window.AIController = AIController;

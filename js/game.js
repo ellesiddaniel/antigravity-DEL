@@ -1,435 +1,366 @@
-/* ==========================================================================
-   Ghost of Tsushima: Way of the Samurai - Main Game Director
-   Three.js 3D Scene, Dynamic Camera, Level Progression, Audio & Game Loop
-   ========================================================================== */
+/**
+ * Main Game Engine for Brawl Legends
+ * Handles 60 FPS update loop, dynamic zooming camera, match flow, HUD, and rendering.
+ */
 
-class Game {
+class GameEngine {
   constructor() {
-    this.currentLevel = 1;
-    this.isPaused = false;
-    this.isGameOver = false;
-    this.gameSpeed = 1.0;
-    this.speedResetTimer = 0;
-    this.shakeIntensity = 0;
+    this.canvas = document.getElementById('gameCanvas');
+    this.ctx = this.canvas.getContext('2d');
 
-    // Three.js Core
-    this.container = document.getElementById('game-container');
-    this.canvas = document.getElementById('bg-canvas');
-    this.scene = new THREE.Scene();
-    this.camera = new THREE.PerspectiveCamera(50, window.innerWidth / window.innerHeight, 0.1, 200);
-    this.renderer = new THREE.WebGLRenderer({
-      canvas: this.canvas,
-      antialias: true,
-      powerPreference: 'high-performance'
-    });
+    this.gameState = 'TITLE'; // TITLE, SELECT, COUNTDOWN, BRAWL, GAME_OVER, PAUSED
+    this.prevGameState = 'TITLE';
+    this.stage = window.STAGES[0];
+    this.stageIndex = 0;
+    this.fighters = [];
+    this.aiControllers = [];
+    this.matchMode = 'stock'; // stock, timed, training
+    this.matchDuration = 180; // 3 minutes in seconds
+    this.matchTimeRemaining = 180;
+    this.timerTickCounter = 0;
 
-    this.enemies = [];
-    this.arenaGroup = null;
+    // Countdown before match starts
+    this.countdownStep = 3;
+    this.countdownTimer = 0;
 
-    this.initRenderer();
-    this.initLighting();
-    this.initSystems();
-    this.initUIEvents();
-
-    // Start Level 1
-    this.loadLevel(1);
-
-    // Main Animation Loop
-    this.lastTime = performance.now();
-    this.animate = this.animate.bind(this);
-    requestAnimationFrame(this.animate);
-  }
-
-  // --- 1. Three.js Setup & Lighting ---
-  initRenderer() {
-    this.renderer.setSize(window.innerWidth, window.innerHeight);
-    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-    this.renderer.shadowMap.enabled = true;
-    this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-    this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    this.renderer.toneMappingExposure = 1.15;
-
-    window.addEventListener('resize', () => {
-      this.camera.aspect = window.innerWidth / window.innerHeight;
-      this.camera.updateProjectionMatrix();
-      this.renderer.setSize(window.innerWidth, window.innerHeight);
-    });
-  }
-
-  initLighting(theme = 'autumn') {
-    // Ambient Light
-    const ambientLight = new THREE.AmbientLight(0xfff5e6, 0.6);
-    this.scene.add(ambientLight);
-
-    // Directional Sunlight (Warm Golden Edo Sun)
-    this.sunLight = new THREE.DirectionalLight(0xffe082, 1.3);
-    this.sunLight.position.set(25, 35, 20);
-    this.sunLight.castShadow = true;
-    this.sunLight.shadow.mapSize.width = 2048;
-    this.sunLight.shadow.mapSize.height = 2048;
-    this.sunLight.shadow.camera.near = 0.5;
-    this.sunLight.shadow.camera.far = 100;
-    this.sunLight.shadow.camera.left = -25;
-    this.sunLight.shadow.camera.right = 25;
-    this.sunLight.shadow.camera.top = 25;
-    this.sunLight.shadow.camera.bottom = -25;
-    this.scene.add(this.sunLight);
-
-    // Fog for atmospheric depth
-    this.scene.fog = new THREE.FogExp2(0x1a1c23, 0.018);
-  }
-
-  // --- 2. Initialize Game Systems ---
-  initSystems() {
-    this.particleEngine = new ParticleEngine(this.scene);
-    window.player = new Player(this.scene);
-  }
-
-  // --- 3. Level Loading & Stage Management ---
-  loadLevel(levelNum) {
-    this.currentLevel = levelNum;
-    this.isGameOver = false;
-
-    // Fetch smooth difficulty config
-    const levelConfig = window.difficultyDirector.getLevelConfig(levelNum);
-
-    // Clear old arena & enemies
-    if (this.arenaGroup) {
-      this.scene.remove(this.arenaGroup);
-    }
-    this.enemies.forEach(e => {
-      this.scene.remove(e.mesh);
-    });
-    this.enemies = [];
-
-    // Build fresh themed arena (autumn, sakura, crimson, night)
-    this.arenaGroup = window.modelFactory.buildArena(this.scene, levelConfig.theme);
-    this.particleEngine.initAmbientLeaves(levelConfig.theme);
-
-    // Reset Player Position & HUD
-    window.player.mesh.position.set(0, 0, 4);
-    window.player.health = window.player.maxHealth;
-    window.player.posture = 0;
-    window.player.updateHUD();
-
-    // Spawn Level Enemies
-    levelConfig.enemies.forEach(cfg => {
-      const enemy = new Enemy(cfg, levelConfig, this.scene);
-      this.enemies.push(enemy);
-    });
-
-    // Update Banner UI
-    const titleEl = document.getElementById('stage-title');
-    const subEl = document.getElementById('stage-sub');
-    const kanjiEl = document.getElementById('stage-kanji');
-    const countEl = document.getElementById('stage-enemies');
-
-    if (titleEl) titleEl.innerText = levelConfig.title;
-    if (subEl) subEl.innerText = levelConfig.sub;
-    if (kanjiEl) kanjiEl.innerText = levelConfig.kanji;
-    if (countEl) countEl.innerHTML = `ENEMIES REMAINING: <span>${this.enemies.length}</span>`;
-
-    // Boss HUD Toggle
-    const bossHud = document.getElementById('boss-hud');
-    if (bossHud) {
-      if (levelConfig.isBoss) {
-        bossHud.classList.remove('hidden');
-      } else {
-        bossHud.classList.add('hidden');
-      }
-    }
-
-    // Play stage intro audio
-    if (window.soundEngine) {
-      window.soundEngine.resume();
-      window.soundEngine.playTaikoBeat(1.5);
-      window.soundEngine.playShakuhachiNote();
-    }
-
-    // Trigger Standoff on skirmish entry (except boss)
-    if (!levelConfig.isBoss && this.enemies.length > 0) {
-      setTimeout(() => {
-        window.combatEngine.startStandoff(this.enemies[0]);
-      }, 500);
-    }
-  }
-
-  // --- 4. Enemy Kill & Victory Handlers ---
-  onEnemyKilled(enemy) {
-    // Reward player
-    const expReward = enemy.type === 'boss' ? 300 : 80;
-    const suppliesReward = enemy.type === 'boss' ? 150 : 35;
-
-    window.progression.addExp(expReward);
-    window.progression.addSupplies(suppliesReward);
-    window.player.addResolve(1);
-    window.player.addGhostMeter(20);
-
-    // Update remaining counter
-    const aliveCount = this.enemies.filter(e => e.state !== 'dead').length;
-    const countEl = document.getElementById('stage-enemies');
-    if (countEl) countEl.innerHTML = `ENEMIES REMAINING: <span>${aliveCount}</span>`;
-
-    // Check Victory
-    if (aliveCount === 0) {
-      setTimeout(() => this.triggerVictory(), 1000);
-    }
-  }
-
-  triggerVictory() {
-    if (window.soundEngine) window.soundEngine.playVictory();
-
-    const vicModal = document.getElementById('victory-modal');
-    if (vicModal) vicModal.classList.remove('hidden');
-
-    // Bonus rewards
-    window.progression.addSupplies(120);
-    window.progression.addTechniquePoints(1);
-  }
-
-  onPlayerDied() {
-    this.isGameOver = true;
-    const goModal = document.getElementById('gameover-modal');
-    if (goModal) goModal.classList.remove('hidden');
-    if (window.soundEngine) window.soundEngine.playExecutionSlice();
-  }
-
-  terrifyEnemies() {
-    this.enemies.forEach(e => {
-      if (e.state !== 'dead' && e.type !== 'boss') {
-        e.state = 'terrified';
-        e.stateTimer = 0;
-      }
-    });
-  }
-
-  // --- 5. Screen FX & Bullet Time ---
-  setGameSpeed(speed, duration = 0.5) {
-    this.gameSpeed = speed;
-    this.speedResetTimer = duration;
-  }
-
-  triggerScreenShake(intensity = 0.3) {
-    this.shakeIntensity = intensity;
-  }
-
-  showCombatAlert(text, type = 'perfect-parry') {
-    const container = document.getElementById('combat-alerts');
-    if (!container) return;
-
-    const el = document.createElement('div');
-    el.className = `combat-alert-item ${type}`;
-    el.innerText = text;
-    container.appendChild(el);
-
-    setTimeout(() => {
-      if (el.parentNode) el.parentNode.removeChild(el);
-    }, 1200);
-  }
-
-  // --- 6. UI Events & Hotkeys ---
-  initUIEvents() {
-    // Shrine Modal Open/Close
-    const btnShrine = document.getElementById('btn-shrine');
-    const shrineModal = document.getElementById('shrine-modal');
-    const closeShrine = document.getElementById('close-shrine');
-    const closeShrineBtm = document.getElementById('btn-close-shrine-bottom');
-    const shrineVictoryBtn = document.getElementById('btn-open-shrine-victory');
-
-    const toggleShrine = () => {
-      shrineModal.classList.toggle('hidden');
-      if (!shrineModal.classList.contains('hidden')) {
-        window.progression.updateUI();
-      }
+    // Camera System (Auto Tracking & Smooth Zoom)
+    this.camera = {
+      x: 640,
+      y: 360,
+      targetX: 640,
+      targetY: 360,
+      zoom: 1.0,
+      targetZoom: 1.0,
+      minZoom: 0.65,
+      maxZoom: 1.15
     };
 
-    if (btnShrine) btnShrine.addEventListener('click', toggleShrine);
-    if (closeShrine) closeShrine.addEventListener('click', () => shrineModal.classList.add('hidden'));
-    if (closeShrineBtm) closeShrineBtm.addEventListener('click', () => shrineModal.classList.add('hidden'));
-    if (shrineVictoryBtn) shrineVictoryBtn.addEventListener('click', toggleShrine);
+    this.debugHitbox = false;
+    this.lastTime = performance.now();
 
-    // Kurosawa Mode Toggle
-    const btnKurosawa = document.getElementById('btn-kurosawa');
-    if (btnKurosawa) {
-      btnKurosawa.addEventListener('click', () => {
-        document.body.classList.toggle('kurosawa-on');
-        if (window.soundEngine) window.soundEngine.playKatanaClash();
-      });
-    }
-
-    // Audio Toggle
-    const btnSound = document.getElementById('btn-sound');
-    if (btnSound) {
-      btnSound.addEventListener('click', () => {
-        window.soundEngine.init();
-        const isMuted = window.soundEngine.toggleMute();
-        btnSound.innerHTML = `<span class="btn-icon">${isMuted ? '🔇' : '🔊'}</span> ${isMuted ? 'UNMUTE' : 'AUDIO'}`;
-      });
-    }
-
-    // Controls Guide Modal
-    const btnHelp = document.getElementById('btn-help');
-    const controlsModal = document.getElementById('controls-modal');
-    const closeControls = document.getElementById('close-controls');
-    if (btnHelp && controlsModal) {
-      btnHelp.addEventListener('click', () => controlsModal.classList.remove('hidden'));
-    }
-    if (closeControls && controlsModal) {
-      closeControls.addEventListener('click', () => controlsModal.classList.add('hidden'));
-    }
-
-    // Next Level & Retry Buttons
-    const btnNext = document.getElementById('btn-next-level');
-    if (btnNext) {
-      btnNext.addEventListener('click', () => {
-        document.getElementById('victory-modal').classList.add('hidden');
-        this.loadLevel(this.currentLevel + 1);
-      });
-    }
-
-    const btnRetry = document.getElementById('btn-retry');
-    if (btnRetry) {
-      btnRetry.addEventListener('click', () => {
-        document.getElementById('gameover-modal').classList.add('hidden');
-        this.loadLevel(this.currentLevel);
-      });
-    }
-
-    // Standoff Space/Click release binding
-    window.addEventListener('keyup', (e) => {
-      if (e.code === 'Space' && window.combatEngine.standoffActive) {
-        window.combatEngine.onStandoffButtonRelease();
-      }
-      if (e.key.toLowerCase() === 'm') toggleShrine();
-      if (e.key.toLowerCase() === 'k') document.body.classList.toggle('kurosawa-on');
-      if (e.key === 'Enter') {
-        const vicModal = document.getElementById('victory-modal');
-        const goModal = document.getElementById('gameover-modal');
-        if (vicModal && !vicModal.classList.contains('hidden')) {
-          vicModal.classList.add('hidden');
-          this.loadLevel(this.currentLevel + 1);
-        } else if (goModal && !goModal.classList.contains('hidden')) {
-          goModal.classList.add('hidden');
-          this.loadLevel(this.currentLevel);
-        }
-      }
-    });
-
-    window.addEventListener('mouseup', (e) => {
-      if (e.button === 0 && window.combatEngine.standoffActive) {
-        window.combatEngine.onStandoffButtonRelease();
-      }
-    });
-
-    // Stance Cards click binding
-    document.querySelectorAll('.stance-card').forEach(card => {
-      card.addEventListener('click', () => {
-        window.stanceManager.setStance(card.dataset.stance);
-      });
-    });
-
-    // Skill Hotbar click binding
-    const skillKunai = document.getElementById('skill-kunai');
-    const skillSmoke = document.getElementById('skill-smoke');
-    const skillHeavenly = document.getElementById('skill-heavenly');
-    const skillWrath = document.getElementById('skill-wrath');
-    if (skillKunai) skillKunai.addEventListener('click', () => window.player.throwKunai());
-    if (skillSmoke) skillSmoke.addEventListener('click', () => window.player.dropSmokeBomb());
-    if (skillHeavenly) skillHeavenly.addEventListener('click', () => window.player.executeHeavenlyStrike());
-    if (skillWrath) skillWrath.addEventListener('click', () => window.player.executeDanceOfWrath());
+    this.initHUD();
+    this.startLoop();
   }
 
-  // --- 7. Main Game & Render Loop ---
-  animate(time) {
-    requestAnimationFrame(this.animate);
+  initHUD() {
+    this.hudElement = document.getElementById('battle-hud');
+    this.timerDisplay = document.getElementById('match-timer');
+    this.cardsContainer = document.getElementById('player-hud-cards');
+    this.announcerBanner = document.getElementById('announcer-banner');
+    this.announcerText = document.getElementById('announcer-text');
+    this.announcerSub = document.getElementById('announcer-subtitle');
+  }
 
-    const rawDelta = Math.min((time - this.lastTime) / 1000, 0.1);
-    this.lastTime = time;
+  startMatch(stageIndex, slotsConfig, mode = 'stock') {
+    this.stageIndex = stageIndex;
+    this.stage = window.STAGES[stageIndex] || window.STAGES[0];
+    this.matchMode = mode;
+    this.matchTimeRemaining = (mode === 'timed' ? 180 : 0);
+    this.timerTickCounter = 0;
 
-    // Bullet Time Speed Management
-    if (this.speedResetTimer > 0) {
-      this.speedResetTimer -= rawDelta;
-      if (this.speedResetTimer <= 0) {
-        this.gameSpeed = 1.0;
+    this.fighters = [];
+    this.aiControllers = [];
+    window.particleSystem.clear();
+
+    const stockCount = (mode === 'timed' ? 99 : (mode === 'training' ? 99 : 3));
+
+    // Spawn Active Fighters
+    slotsConfig.forEach((slot, idx) => {
+      if (!slot.active) return;
+      const f = new Fighter(slot.id, slot.charId, slot.isBot, slot.botDifficulty);
+      const spawnPoint = this.stage.spawnPoints[idx] || { x: 640, y: 300 };
+      f.resetForMatch(spawnPoint, stockCount);
+      this.fighters.push(f);
+
+      if (slot.isBot) {
+        this.aiControllers.push(new AIController(f));
+      } else {
+        this.aiControllers.push(null);
       }
+    });
+
+    // Reset Camera
+    this.camera.x = 640;
+    this.camera.y = 360;
+    this.camera.zoom = 1.0;
+
+    // Start 3-2-1 Countdown
+    this.gameState = 'COUNTDOWN';
+    this.countdownStep = 3;
+    this.countdownTimer = 60;
+    this.renderHUDCards();
+    this.hudElement.classList.remove('hidden');
+
+    this.triggerAnnouncer('3', 'GET READY!');
+    window.soundEngine.playAnnounce('count');
+  }
+
+  triggerAnnouncer(title, sub = '', duration = 1200) {
+    this.announcerText.textContent = title;
+    this.announcerSub.textContent = sub;
+    this.announcerBanner.classList.remove('hidden');
+
+    clearTimeout(this.announceTimeout);
+    this.announceTimeout = setTimeout(() => {
+      this.announcerBanner.classList.add('hidden');
+    }, duration);
+  }
+
+  update(dt) {
+    // Background stage animation always updates
+    if (this.stage) {
+      this.stage.update(dt);
     }
-    const delta = rawDelta * this.gameSpeed;
 
-    // Dynamic Battle Music
-    const activeEnemies = this.enemies.filter(e => e.state !== 'dead').length;
-    const intensity = activeEnemies === 0 ? 0 : (this.currentLevel % 5 === 0 ? 2 : 1);
-    window.soundEngine.updateMusic(intensity);
+    if (this.gameState === 'PAUSED') return;
 
-    // Update Standoff Mini-Game if active
-    if (window.combatEngine.standoffActive) {
-      window.combatEngine.updateStandoff(delta);
-    }
+    // 1. COUNTDOWN STATE
+    if (this.gameState === 'COUNTDOWN') {
+      this.countdownTimer--;
+      if (this.countdownTimer <= 0) {
+        this.countdownStep--;
+        this.countdownTimer = 50;
 
-    // Update Player & Enemies
-    if (window.player && !this.isGameOver) {
-      window.player.update(delta, this.enemies);
-
-      // Distribute AI attack tokens smoothly
-      let tokensAssigned = 0;
-      const levelCfg = window.difficultyDirector.getLevelConfig(this.currentLevel);
-
-      this.enemies.forEach(enemy => {
-        if (enemy.state !== 'dead') {
-          if (enemy.state === 'idle' || enemy.state === 'approach' || enemy.state === 'circle') {
-            if (tokensAssigned < levelCfg.maxAttackTokens) {
-              enemy.hasAttackToken = true;
-              tokensAssigned++;
-            } else {
-              enemy.hasAttackToken = false;
-            }
-          }
-          enemy.update(delta, window.player.mesh.position, window.player, this.camera);
+        if (this.countdownStep === 2) {
+          this.triggerAnnouncer('2', '');
+          window.soundEngine.playAnnounce('count');
+        } else if (this.countdownStep === 1) {
+          this.triggerAnnouncer('1', '');
+          window.soundEngine.playAnnounce('count');
+        } else if (this.countdownStep === 0) {
+          this.triggerAnnouncer('BRAWL!', 'FIGHT FOR GLORY!');
+          window.soundEngine.playAnnounce('brawl');
+          window.soundEngine.startBattleBGM();
+          this.gameState = 'BRAWL';
         }
+      }
+      return;
+    }
+
+    // 2. BRAWL STATE (Active Gameplay)
+    if (this.gameState === 'BRAWL') {
+      // Update Match Clock
+      if (this.matchMode === 'timed') {
+        this.timerTickCounter++;
+        if (this.timerTickCounter >= 60) {
+          this.timerTickCounter = 0;
+          this.matchTimeRemaining--;
+          if (this.matchTimeRemaining <= 0) {
+            this.endMatch('WAKTU HABIS!');
+            return;
+          }
+        }
+      }
+
+      // Update Fighters
+      this.fighters.forEach((f, idx) => {
+        const input = window.inputManager.getInput(
+          f.slotId, 
+          f.isBot, 
+          this.aiControllers[idx], 
+          this.stage, 
+          this.fighters
+        );
+        f.update(this.stage, this.fighters, input);
       });
+
+      // Clear input manager pulses
+      window.inputManager.update();
+
+      // Check Match Over condition (Stock Elimination)
+      this.checkMatchOver();
     }
 
-    // Update Particle Engine
-    if (this.particleEngine) {
-      this.particleEngine.update(delta);
+    // 3. Update VFX Particles & Camera
+    window.particleSystem.update(dt);
+    this.updateCamera();
+
+    // 4. Synchronize In-Game HUD
+    this.updateHUD();
+  }
+
+  checkMatchOver() {
+    if (this.matchMode === 'training') return;
+
+    const aliveFighters = this.fighters.filter(f => !f.isDead);
+    if (aliveFighters.length <= 1 && this.fighters.length > 1) {
+      const winner = aliveFighters[0] || this.fighters[0];
+      this.endMatch(`PEMENANG: ${winner.slotId} (${winner.characterData.name})`, winner);
     }
+  }
 
-    // Camera Director (Follows Jin Sakai with cinematic lerp & shake)
-    if (window.player) {
-      const pPos = window.player.mesh.position;
-      let targetCamX = pPos.x;
-      let targetCamY = 5.5;
-      let targetCamZ = pPos.z + 8.5;
+  endMatch(bannerText, winner = null) {
+    this.gameState = 'GAME_OVER';
+    window.soundEngine.stopBattleBGM();
+    window.soundEngine.playVictory();
+    this.triggerAnnouncer('GAME!', bannerText, 2500);
 
-      // Standoff camera angle (Low cinematic profile)
-      if (window.combatEngine.standoffActive) {
-        targetCamX = pPos.x + 3.5;
-        targetCamY = 1.6;
-        targetCamZ = pPos.z + 1.2;
+    setTimeout(() => {
+      if (window.onMatchFinished) {
+        window.onMatchFinished(winner, this.fighters);
       }
+    }, 2200);
+  }
 
-      this.camera.position.x = THREE.MathUtils.lerp(this.camera.position.x, targetCamX, rawDelta * 6);
-      this.camera.position.y = THREE.MathUtils.lerp(this.camera.position.y, targetCamY, rawDelta * 6);
-      this.camera.position.z = THREE.MathUtils.lerp(this.camera.position.z, targetCamZ, rawDelta * 6);
+  updateCamera() {
+    const activeFighters = this.fighters.filter(f => !f.isDead && !f.isRespawning);
+    if (activeFighters.length === 0) return;
 
-      // Apply screen shake
-      if (this.shakeIntensity > 0) {
-        this.camera.position.x += (Math.random() - 0.5) * this.shakeIntensity;
-        this.camera.position.y += (Math.random() - 0.5) * this.shakeIntensity;
-        this.shakeIntensity = Math.max(0, this.shakeIntensity - rawDelta * 2);
-      }
+    let minX = Infinity, maxX = -Infinity;
+    let minY = Infinity, maxY = -Infinity;
 
-      const lookTarget = window.combatEngine.standoffActive ?
-        new THREE.Vector3(pPos.x, 1.4, pPos.z - 2) :
-        new THREE.Vector3(pPos.x, 1.2, pPos.z);
-      this.camera.lookAt(lookTarget);
+    activeFighters.forEach(f => {
+      minX = Math.min(minX, f.x);
+      maxX = Math.max(maxX, f.x);
+      minY = Math.min(minY, f.y);
+      maxY = Math.max(maxY, f.y);
+    });
+
+    // Add padding margin around fighters
+    const paddingX = 220;
+    const paddingY = 180;
+    const spanX = Math.max(450, (maxX - minX) + paddingX * 2);
+    const spanY = Math.max(300, (maxY - minY) + paddingY * 2);
+
+    const zoomX = this.canvas.width / spanX;
+    const zoomY = this.canvas.height / spanY;
+    this.camera.targetZoom = Math.max(this.camera.minZoom, Math.min(this.camera.maxZoom, Math.min(zoomX, zoomY)));
+
+    this.camera.targetX = (minX + maxX) / 2;
+    this.camera.targetY = ((minY + maxY) / 2) - 40;
+
+    // Smooth Lerp Camera
+    this.camera.x += (this.camera.targetX - this.camera.x) * 0.1;
+    this.camera.y += (this.camera.targetY - this.camera.y) * 0.1;
+    this.camera.zoom += (this.camera.targetZoom - this.camera.zoom) * 0.08;
+  }
+
+  render() {
+    const ctx = this.ctx;
+    const w = this.canvas.width;
+    const h = this.canvas.height;
+
+    ctx.clearRect(0, 0, w, h);
+
+    // 1. Draw Background Stage
+    if (this.stage) {
+      this.stage.drawBackground(ctx, w, h);
     }
 
-    // Render 3D Scene
-    this.renderer.render(this.scene, this.camera);
+    // 2. Apply Camera World Transform + Screen Shake
+    ctx.save();
+    const shakeX = window.particleSystem.screenShakeX;
+    const shakeY = window.particleSystem.screenShakeY;
+
+    ctx.translate(w / 2 + shakeX, h / 2 + shakeY);
+    ctx.scale(this.camera.zoom, this.camera.zoom);
+    ctx.translate(-this.camera.x, -this.camera.y);
+
+    // 3. Draw Stage Platforms
+    if (this.stage) {
+      this.stage.drawPlatforms(ctx);
+    }
+
+    // 4. Draw Fighters
+    for (let f of this.fighters) {
+      f.draw(ctx, this.debugHitbox);
+    }
+
+    // 5. Draw Particle VFX
+    window.particleSystem.draw(ctx);
+
+    ctx.restore();
+  }
+
+  renderHUDCards() {
+    this.cardsContainer.innerHTML = '';
+    this.fighters.forEach(f => {
+      const card = document.createElement('div');
+      card.className = 'hud-player-card';
+      card.id = `hud-card-${f.slotId}`;
+      card.style.setProperty('--char-color', f.characterData.themeColor);
+
+      card.innerHTML = `
+        <div class="hud-avatar" style="color:${f.characterData.themeColor}">
+          ${f.slotId}
+        </div>
+        <div class="hud-info">
+          <div class="hud-header-line">
+            <span class="hud-player-name">${f.characterData.name} ${f.isBot ? `[BOT]` : ''}</span>
+            <div class="hud-stocks" id="stocks-${f.slotId}">
+              ${this.renderStocksHTML(f.stocks)}
+            </div>
+          </div>
+          <div class="hud-damage-wrapper">
+            <span class="hud-damage-val damage-low" id="damage-val-${f.slotId}">0</span>
+            <span class="hud-damage-percent">%</span>
+          </div>
+        </div>
+      `;
+      this.cardsContainer.appendChild(card);
+    });
+  }
+
+  renderStocksHTML(stocks) {
+    if (this.matchMode === 'timed' || this.matchMode === 'training') {
+      return `<span style="font-size:11px;color:#94a3b8">∞</span>`;
+    }
+    let html = '';
+    for (let i = 0; i < 3; i++) {
+      html += `<div class="stock-icon ${i < stocks ? '' : 'lost'}"></div>`;
+    }
+    return html;
+  }
+
+  updateHUD() {
+    if (this.gameState !== 'BRAWL' && this.gameState !== 'COUNTDOWN') return;
+
+    // Update Timer
+    if (this.matchMode === 'timed') {
+      const m = Math.floor(this.matchTimeRemaining / 60);
+      const s = this.matchTimeRemaining % 60;
+      this.timerDisplay.textContent = `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+    } else {
+      this.timerDisplay.textContent = '∞';
+    }
+
+    // Update Fighter Cards
+    this.fighters.forEach(f => {
+      const dmgEl = document.getElementById(`damage-val-${f.slotId}`);
+      const stocksEl = document.getElementById(`stocks-${f.slotId}`);
+      if (dmgEl) {
+        dmgEl.textContent = Math.floor(f.damagePercent);
+        dmgEl.className = 'hud-damage-val ' + this.getDamageClass(f.damagePercent);
+      }
+      if (stocksEl && this.matchMode === 'stock') {
+        stocksEl.innerHTML = this.renderStocksHTML(f.stocks);
+      }
+    });
+  }
+
+  getDamageClass(dmg) {
+    if (dmg < 50) return 'damage-low';
+    if (dmg < 100) return 'damage-mid';
+    if (dmg < 140) return 'damage-high';
+    return 'damage-crit';
+  }
+
+  toggleHitboxDebug() {
+    this.debugHitbox = !this.debugHitbox;
+  }
+
+  startLoop() {
+    const loop = (now) => {
+      const dt = Math.min(0.1, (now - this.lastTime) / 1000);
+      this.lastTime = now;
+
+      this.update(dt);
+      this.render();
+
+      requestAnimationFrame(loop);
+    };
+    requestAnimationFrame(loop);
   }
 }
 
-// Start Game on page load
-window.addEventListener('DOMContentLoaded', () => {
-  window.game = new Game();
-});
+window.gameEngine = new GameEngine();

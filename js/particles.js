@@ -1,268 +1,336 @@
-/* ==========================================================================
-   Ghost of Tsushima - 3D Particle Systems & Cinematic FX
-   Atmospheric Guiding Wind, Sakura Petals, Sword Sparks, Blood, Smoke, Lightning
-   ========================================================================== */
-
-class ParticleEngine {
-  constructor(scene) {
-    this.scene = scene;
-    this.particles = []; // Temporary combat fx particles
-    this.ambientLeaves = null; // Continuous environmental leaves
-    this.leafCount = 280;
-    this.windDirection = new THREE.Vector3(1.2, -0.4, 0.6);
-
-    this.initAmbientLeaves('autumn'); // Default autumn golden leaves
+/**
+ * Particle and Visual Effects Engine for Brawl Legends
+ */
+class Particle {
+  constructor(opts) {
+    this.x = opts.x || 0;
+    this.y = opts.y || 0;
+    this.vx = opts.vx || 0;
+    this.vy = opts.vy || 0;
+    this.size = opts.size || 4;
+    this.color = opts.color || '#ffffff';
+    this.alpha = opts.alpha !== undefined ? opts.alpha : 1.0;
+    this.decay = opts.decay || 0.03;
+    this.gravity = opts.gravity || 0;
+    this.drag = opts.drag || 0.98;
+    this.shape = opts.shape || 'circle'; // circle, spark, line, ring, dust, star
+    this.rotation = opts.rotation || 0;
+    this.rotSpeed = opts.rotSpeed || 0;
+    this.maxLife = 1.0;
+    this.life = 1.0;
+    this.glow = opts.glow || false;
+    this.ringRadius = opts.ringRadius || 5;
+    this.ringGrowth = opts.ringGrowth || 6;
   }
 
-  // --- Environmental Wind & Falling Leaves (Sakura / Golden Ginkgo / Crimson) ---
-  initAmbientLeaves(theme = 'autumn') {
-    if (this.ambientLeaves) {
-      this.scene.remove(this.ambientLeaves);
-      this.ambientLeaves.geometry.dispose();
-      this.ambientLeaves.material.dispose();
-    }
+  update(dt) {
+    this.x += this.vx;
+    this.y += this.vy;
+    this.vy += this.gravity;
+    this.vx *= this.drag;
+    this.vy *= this.drag;
+    this.rotation += this.rotSpeed;
+    this.alpha -= this.decay;
+    this.life -= this.decay;
 
-    const geometry = new THREE.BufferGeometry();
-    const positions = new Float32Array(this.leafCount * 3);
-    const rotations = new Float32Array(this.leafCount * 3);
-    const scales = new Float32Array(this.leafCount);
-    const velocities = new Float32Array(this.leafCount * 3);
-
-    let baseColor = 0xf0c34a; // Autumn Gold
-    if (theme === 'sakura') baseColor = 0xffb7c5; // Cherry Blossom Pink
-    else if (theme === 'crimson') baseColor = 0xd32f2f; // Red Maple
-    else if (theme === 'night') baseColor = 0x81d4fa; // Moonlit Petals
-
-    for (let i = 0; i < this.leafCount; i++) {
-      const i3 = i * 3;
-      positions[i3] = (Math.random() - 0.5) * 60;
-      positions[i3 + 1] = Math.random() * 18 + 1;
-      positions[i3 + 2] = (Math.random() - 0.5) * 60;
-
-      rotations[i3] = Math.random() * Math.PI;
-      rotations[i3 + 1] = Math.random() * Math.PI;
-      rotations[i3 + 2] = Math.random() * Math.PI;
-
-      scales[i] = Math.random() * 0.35 + 0.15;
-
-      velocities[i3] = (Math.random() * 0.5 + 0.8) * this.windDirection.x;
-      velocities[i3 + 1] = -Math.random() * 0.8 - 0.4;
-      velocities[i3 + 2] = (Math.random() * 0.5 + 0.8) * this.windDirection.z;
-    }
-
-    geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
-    this.leafVelocities = velocities;
-    this.leafRotations = rotations;
-
-    // Custom Canvas Texture for Japanese Leaf Shape
-    const canvas = document.createElement('canvas');
-    canvas.width = 64; canvas.height = 64;
-    const ctx = canvas.getContext('2d');
-    ctx.fillStyle = theme === 'sakura' ? '#ffb7c5' : (theme === 'crimson' ? '#d32f2f' : '#f0c34a');
-    ctx.beginPath();
-    ctx.ellipse(32, 32, 28, 14, Math.PI / 4, 0, Math.PI * 2);
-    ctx.fill();
-
-    const texture = new THREE.CanvasTexture(canvas);
-
-    const material = new THREE.PointsMaterial({
-      size: 0.85,
-      map: texture,
-      transparent: true,
-      opacity: 0.85,
-      depthWrite: false,
-      blending: THREE.NormalBlending
-    });
-
-    this.ambientLeaves = new THREE.Points(geometry, material);
-    this.scene.add(this.ambientLeaves);
-  }
-
-  // --- Dynamic Sword Sparks (Katana Clash / Parry) ---
-  createSwordSparks(pos, count = 25) {
-    for (let i = 0; i < count; i++) {
-      const geom = new THREE.BufferGeometry();
-      const p = new Float32Array([pos.x, pos.y, pos.z]);
-      geom.setAttribute('position', new THREE.BufferAttribute(p, 3));
-
-      const mat = new THREE.PointsMaterial({
-        color: Math.random() > 0.3 ? 0xffea00 : 0xff5722,
-        size: 0.3 + Math.random() * 0.25,
-        transparent: true,
-        opacity: 1.0,
-        blending: THREE.AdditiveBlending
-      });
-
-      const particle = new THREE.Points(geom, mat);
-      const angle = Math.random() * Math.PI * 2;
-      const speed = Math.random() * 6 + 4;
-      const vel = new THREE.Vector3(
-        Math.cos(angle) * speed,
-        Math.random() * 5 + 2,
-        Math.sin(angle) * speed
-      );
-
-      this.scene.add(particle);
-      this.particles.push({
-        mesh: particle,
-        vel: vel,
-        gravity: -18,
-        life: 0.3 + Math.random() * 0.25,
-        maxLife: 0.55
-      });
+    if (this.shape === 'ring') {
+      this.ringRadius += this.ringGrowth;
     }
   }
 
-  // --- Cinematic Blood Spray on Lethal Strike ---
-  createBloodSpray(pos, dir, count = 35) {
-    for (let i = 0; i < count; i++) {
-      const geom = new THREE.BufferGeometry();
-      const p = new Float32Array([pos.x, pos.y, pos.z]);
-      geom.setAttribute('position', new THREE.BufferAttribute(p, 3));
+  draw(ctx) {
+    if (this.alpha <= 0) return;
+    ctx.save();
+    ctx.globalAlpha = Math.max(0, Math.min(1, this.alpha));
 
-      const mat = new THREE.PointsMaterial({
-        color: Math.random() > 0.2 ? 0x8a0303 : 0xb71c1c,
-        size: 0.25 + Math.random() * 0.25,
-        transparent: true,
-        opacity: 0.95
-      });
-
-      const particle = new THREE.Points(geom, mat);
-      const spread = (Math.random() - 0.5) * 1.5;
-      const speed = Math.random() * 7 + 3;
-      const vel = new THREE.Vector3(
-        dir.x * speed + spread,
-        Math.random() * 4 + 1.5,
-        dir.z * speed + spread
-      );
-
-      this.scene.add(particle);
-      this.particles.push({
-        mesh: particle,
-        vel: vel,
-        gravity: -22,
-        life: 0.4 + Math.random() * 0.3,
-        maxLife: 0.7
-      });
-    }
-  }
-
-  // --- Lightning Sparks (Heavenly Strike) ---
-  createLightningSparks(pos, count = 40) {
-    for (let i = 0; i < count; i++) {
-      const geom = new THREE.BufferGeometry();
-      const p = new Float32Array([pos.x + (Math.random() - 0.5) * 1.5, pos.y + Math.random() * 2, pos.z + (Math.random() - 0.5) * 1.5]);
-      geom.setAttribute('position', new THREE.BufferAttribute(p, 3));
-
-      const mat = new THREE.PointsMaterial({
-        color: 0x80d8ff,
-        size: 0.4 + Math.random() * 0.3,
-        transparent: true,
-        opacity: 1.0,
-        blending: THREE.AdditiveBlending
-      });
-
-      const particle = new THREE.Points(geom, mat);
-      const vel = new THREE.Vector3((Math.random() - 0.5) * 12, Math.random() * 8 + 3, (Math.random() - 0.5) * 12);
-
-      this.scene.add(particle);
-      this.particles.push({
-        mesh: particle,
-        vel: vel,
-        gravity: -10,
-        life: 0.25 + Math.random() * 0.2,
-        maxLife: 0.45
-      });
-    }
-  }
-
-  // --- Smoke Bomb Cloud ---
-  createSmokeCloud(pos, count = 20) {
-    for (let i = 0; i < count; i++) {
-      const geom = new THREE.SphereGeometry(0.8 + Math.random() * 0.6, 6, 6);
-      const mat = new THREE.MeshBasicMaterial({
-        color: 0xcccccc,
-        transparent: true,
-        opacity: 0.6
-      });
-
-      const mesh = new THREE.Mesh(geom, mat);
-      mesh.position.set(
-        pos.x + (Math.random() - 0.5) * 2,
-        pos.y + 0.5 + Math.random() * 1,
-        pos.z + (Math.random() - 0.5) * 2
-      );
-
-      this.scene.add(mesh);
-      this.particles.push({
-        mesh: mesh,
-        vel: new THREE.Vector3((Math.random() - 0.5) * 1.2, Math.random() * 0.8 + 0.2, (Math.random() - 0.5) * 1.2),
-        isMesh: true,
-        scaleSpeed: 1.04,
-        life: 2.2,
-        maxLife: 2.2
-      });
-    }
-  }
-
-  // --- Main Update Loop ---
-  update(delta) {
-    // 1. Update Ambient Leaves
-    if (this.ambientLeaves) {
-      const positions = this.ambientLeaves.geometry.attributes.position.array;
-      for (let i = 0; i < this.leafCount; i++) {
-        const i3 = i * 3;
-        positions[i3] += this.leafVelocities[i3] * delta;
-        positions[i3 + 1] += this.leafVelocities[i3 + 1] * delta;
-        positions[i3 + 2] += this.leafVelocities[i3 + 2] * delta;
-
-        // Reset if ground hit or drifted out of arena bounds
-        if (positions[i3 + 1] < 0 || positions[i3] > 30 || positions[i3 + 2] > 30) {
-          positions[i3] = (Math.random() - 0.5) * 50 - 15;
-          positions[i3 + 1] = Math.random() * 14 + 6;
-          positions[i3 + 2] = (Math.random() - 0.5) * 50 - 15;
-        }
-      }
-      this.ambientLeaves.geometry.attributes.position.needsUpdate = true;
+    if (this.glow) {
+      ctx.shadowColor = this.color;
+      ctx.shadowBlur = 10;
     }
 
-    // 2. Update FX Particles
-    for (let i = this.particles.length - 1; i >= 0; i--) {
-      const p = this.particles[i];
-      p.life -= delta;
-
-      if (p.life <= 0) {
-        this.scene.remove(p.mesh);
-        if (p.mesh.geometry) p.mesh.geometry.dispose();
-        if (p.mesh.material) p.mesh.material.dispose();
-        this.particles.splice(i, 1);
-        continue;
-      }
-
-      if (p.isMesh) {
-        // Volumetric smoke expansion
-        p.mesh.position.addScaledVector(p.vel, delta);
-        p.mesh.scale.multiplyScalar(p.scaleSpeed);
-        p.mesh.material.opacity = (p.life / p.maxLife) * 0.5;
-      } else {
-        // Point particle physics
-        const posAttr = p.mesh.geometry.attributes.position;
-        p.vel.y += p.gravity * delta;
-        posAttr.array[0] += p.vel.x * delta;
-        posAttr.array[1] += p.vel.y * delta;
-        posAttr.array[2] += p.vel.z * delta;
-
-        // Bounce on floor
-        if (posAttr.array[1] < 0.05) {
-          posAttr.array[1] = 0.05;
-          p.vel.y *= -0.3;
-          p.vel.x *= 0.6;
-          p.vel.z *= 0.6;
-        }
-
-        posAttr.needsUpdate = true;
-        p.mesh.material.opacity = p.life / p.maxLife;
-      }
+    if (this.shape === 'circle') {
+      ctx.fillStyle = this.color;
+      ctx.beginPath();
+      ctx.arc(this.x, this.y, Math.max(0.5, this.size), 0, Math.PI * 2);
+      ctx.fill();
+    } else if (this.shape === 'spark') {
+      ctx.strokeStyle = this.color;
+      ctx.lineWidth = Math.max(1, this.size);
+      ctx.beginPath();
+      ctx.moveTo(this.x, this.y);
+      ctx.lineTo(this.x - this.vx * 2.5, this.y - this.vy * 2.5);
+      ctx.stroke();
+    } else if (this.shape === 'ring') {
+      ctx.strokeStyle = this.color;
+      ctx.lineWidth = Math.max(1, this.size);
+      ctx.beginPath();
+      ctx.arc(this.x, this.y, this.ringRadius, 0, Math.PI * 2);
+      ctx.stroke();
+    } else if (this.shape === 'dust') {
+      ctx.fillStyle = this.color;
+      ctx.beginPath();
+      ctx.arc(this.x, this.y, this.size * (1 - (this.life * 0.3)), 0, Math.PI * 2);
+      ctx.fill();
+    } else if (this.shape === 'line') {
+      ctx.save();
+      ctx.translate(this.x, this.y);
+      ctx.rotate(this.rotation);
+      ctx.strokeStyle = this.color;
+      ctx.lineWidth = this.size;
+      ctx.beginPath();
+      ctx.moveTo(-15, 0);
+      ctx.lineTo(15, 0);
+      ctx.stroke();
+      ctx.restore();
     }
+
+    ctx.restore();
   }
 }
+
+class SlashArc {
+  constructor(x, y, radius, startAngle, endAngle, color, facing = 1, width = 6) {
+    this.x = x;
+    this.y = y;
+    this.radius = radius;
+    this.startAngle = startAngle;
+    this.endAngle = endAngle;
+    this.color = color;
+    this.facing = facing;
+    this.width = width;
+    this.alpha = 0.9;
+    this.decay = 0.12;
+  }
+
+  update() {
+    this.alpha -= this.decay;
+    this.radius += 2;
+  }
+
+  draw(ctx) {
+    if (this.alpha <= 0) return;
+    ctx.save();
+    ctx.globalAlpha = this.alpha;
+    ctx.shadowColor = this.color;
+    ctx.shadowBlur = 15;
+    ctx.strokeStyle = this.color;
+    ctx.lineWidth = this.width;
+    ctx.lineCap = 'round';
+
+    ctx.beginPath();
+    if (this.facing > 0) {
+      ctx.arc(this.x, this.y, this.radius, this.startAngle, this.endAngle, false);
+    } else {
+      ctx.arc(this.x, this.y, this.radius, Math.PI - this.endAngle, Math.PI - this.startAngle, false);
+    }
+    ctx.stroke();
+    ctx.restore();
+  }
+}
+
+class ParticleSystem {
+  constructor() {
+    this.particles = [];
+    this.slashArcs = [];
+    this.ambientParticles = [];
+    this.screenShake = 0;
+    this.screenShakeX = 0;
+    this.screenShakeY = 0;
+    this.particlesEnabled = true;
+  }
+
+  triggerShake(intensity = 10) {
+    this.screenShake = Math.max(this.screenShake, intensity);
+  }
+
+  addHitSparks(x, y, color = '#fbbf24', count = 16, baseAngle = null) {
+    if (!this.particlesEnabled) return;
+    for (let i = 0; i < count; i++) {
+      const angle = baseAngle !== null 
+        ? baseAngle + (Math.random() - 0.5) * 1.6 
+        : Math.random() * Math.PI * 2;
+      const speed = 4 + Math.random() * 10;
+      this.particles.push(new Particle({
+        x: x + (Math.random() - 0.5) * 10,
+        y: y + (Math.random() - 0.5) * 10,
+        vx: Math.cos(angle) * speed,
+        vy: Math.sin(angle) * speed,
+        size: 2 + Math.random() * 3,
+        color: Math.random() > 0.3 ? color : '#ffffff',
+        alpha: 1.0,
+        decay: 0.03 + Math.random() * 0.04,
+        shape: 'spark',
+        drag: 0.94,
+        glow: true
+      }));
+    }
+
+    // Impact burst flash ring
+    this.particles.push(new Particle({
+      x: x,
+      y: y,
+      size: 3,
+      ringRadius: 8,
+      ringGrowth: 8,
+      color: color,
+      alpha: 0.8,
+      decay: 0.08,
+      shape: 'ring',
+      glow: true
+    }));
+  }
+
+  addSlashArc(x, y, radius, startAngle, endAngle, color, facing = 1, width = 6) {
+    if (!this.particlesEnabled) return;
+    this.slashArcs.push(new SlashArc(x, y, radius, startAngle, endAngle, color, facing, width));
+  }
+
+  addDust(x, y, count = 6, dir = 0) {
+    if (!this.particlesEnabled) return;
+    for (let i = 0; i < count; i++) {
+      this.particles.push(new Particle({
+        x: x + (Math.random() - 0.5) * 12,
+        y: y - 2,
+        vx: (dir !== 0 ? -dir * (1 + Math.random() * 3) : (Math.random() - 0.5) * 3),
+        vy: -(0.5 + Math.random() * 2),
+        size: 3 + Math.random() * 4,
+        color: 'rgba(203, 213, 225, 0.6)',
+        alpha: 0.7,
+        decay: 0.04 + Math.random() * 0.03,
+        shape: 'dust',
+        gravity: -0.02
+      }));
+    }
+  }
+
+  addKORing(x, y, color = '#f43f5e') {
+    this.triggerShake(24);
+    // Multiple concentric expanding rings
+    for (let i = 0; i < 3; i++) {
+      setTimeout(() => {
+        this.particles.push(new Particle({
+          x: x,
+          y: y,
+          size: 4 + i * 2,
+          ringRadius: 10 + i * 15,
+          ringGrowth: 18 + i * 4,
+          color: color,
+          alpha: 1.0,
+          decay: 0.03,
+          shape: 'ring',
+          glow: true
+        }));
+      }, i * 60);
+    }
+
+    // High velocity explosion sparkles
+    for (let i = 0; i < 40; i++) {
+      const angle = Math.random() * Math.PI * 2;
+      const speed = 8 + Math.random() * 16;
+      this.particles.push(new Particle({
+        x: x,
+        y: y,
+        vx: Math.cos(angle) * speed,
+        vy: Math.sin(angle) * speed,
+        size: 3 + Math.random() * 4,
+        color: Math.random() > 0.4 ? color : '#ffffff',
+        alpha: 1.0,
+        decay: 0.02 + Math.random() * 0.03,
+        shape: 'spark',
+        drag: 0.95,
+        glow: true
+      }));
+    }
+  }
+
+  addElementalAura(x, y, element, count = 2) {
+    if (!this.particlesEnabled) return;
+    for (let i = 0; i < count; i++) {
+      let color, vy, vx, shape = 'circle', size = 3;
+      if (element === 'shadow') {
+        color = Math.random() > 0.5 ? '#a855f7' : '#4c1d95';
+        vx = (Math.random() - 0.5) * 1.5;
+        vy = -(1 + Math.random() * 2);
+      } else if (element === 'fire') {
+        color = Math.random() > 0.5 ? '#ef4444' : '#fbbf24';
+        vx = (Math.random() - 0.5) * 2;
+        vy = -(1.5 + Math.random() * 2.5);
+      } else if (element === 'thunder') {
+        color = Math.random() > 0.5 ? '#38bdf8' : '#e0f2fe';
+        vx = (Math.random() - 0.5) * 4;
+        vy = (Math.random() - 0.5) * 4;
+        shape = 'spark';
+      } else { // earth
+        color = Math.random() > 0.5 ? '#f59e0b' : '#78350f';
+        vx = (Math.random() - 0.5) * 2;
+        vy = -(0.8 + Math.random() * 1.5);
+      }
+
+      this.particles.push(new Particle({
+        x: x + (Math.random() - 0.5) * 20,
+        y: y + (Math.random() - 0.5) * 20,
+        vx: vx,
+        vy: vy,
+        size: size,
+        color: color,
+        alpha: 0.8,
+        decay: 0.04 + Math.random() * 0.03,
+        shape: shape,
+        glow: true
+      }));
+    }
+  }
+
+  update(dt) {
+    // Update Shake
+    if (this.screenShake > 0) {
+      this.screenShakeX = (Math.random() - 0.5) * this.screenShake * 1.5;
+      this.screenShakeY = (Math.random() - 0.5) * this.screenShake * 1.5;
+      this.screenShake *= 0.88;
+      if (this.screenShake < 0.2) {
+        this.screenShake = 0;
+        this.screenShakeX = 0;
+        this.screenShakeY = 0;
+      }
+    }
+
+    // Update Particles
+    for (let i = this.particles.length - 1; i >= 0; i--) {
+      const p = this.particles[i];
+      p.update(dt);
+      if (p.alpha <= 0) {
+        this.particles.splice(i, 1);
+      }
+    }
+
+    // Update Slash Arcs
+    for (let i = this.slashArcs.length - 1; i >= 0; i--) {
+      const s = this.slashArcs[i];
+      s.update();
+      if (s.alpha <= 0) {
+        this.slashArcs.splice(i, 1);
+      }
+    }
+  }
+
+  draw(ctx) {
+    // Draw Slashes first (underneath spark bursts)
+    for (let s of this.slashArcs) {
+      s.draw(ctx);
+    }
+    // Draw Particles
+    for (let p of this.particles) {
+      p.draw(ctx);
+    }
+  }
+
+  clear() {
+    this.particles = [];
+    this.slashArcs = [];
+    this.screenShake = 0;
+    this.screenShakeX = 0;
+    this.screenShakeY = 0;
+  }
+}
+
+window.particleSystem = new ParticleSystem();
