@@ -1,183 +1,268 @@
-/**
- * Particle & Visual Effects Engine
- * Ambient floating math symbols, dynamic spark bursts, and victory confetti.
- */
+/* ==========================================================================
+   Ghost of Tsushima - 3D Particle Systems & Cinematic FX
+   Atmospheric Guiding Wind, Sakura Petals, Sword Sparks, Blood, Smoke, Lightning
+   ========================================================================== */
+
 class ParticleEngine {
-    constructor() {
-        this.bgCanvas = document.getElementById('bg-canvas');
-        this.fxCanvas = document.getElementById('fx-canvas');
-        
-        if (!this.bgCanvas || !this.fxCanvas) {
-            console.warn("Canvas elements not found during init");
-            return;
-        }
+  constructor(scene) {
+    this.scene = scene;
+    this.particles = []; // Temporary combat fx particles
+    this.ambientLeaves = null; // Continuous environmental leaves
+    this.leafCount = 280;
+    this.windDirection = new THREE.Vector3(1.2, -0.4, 0.6);
 
-        this.bgCtx = this.bgCanvas.getContext('2d');
-        this.fxCtx = this.fxCanvas.getContext('2d');
+    this.initAmbientLeaves('autumn'); // Default autumn golden leaves
+  }
 
-        this.bgSymbols = [];
-        this.fxParticles = [];
-        this.confettiParticles = [];
-
-        this.symbolsList = ['π', '∑', '√x', '∞', '∫', 'Δ', '24', '≈', '≠', '×', '÷', '+', '−', 'f(x)', 'λ', 'θ', '²', '³', '1/2', 'log'];
-        this.colors = ['#38bdf8', '#818cf8', '#34d399', '#f472b6', '#fbbf24', '#a78bfa'];
-
-        this.initResize();
-        this.initBackgroundSymbols(25);
-        this.animate = this.animate.bind(this);
-        requestAnimationFrame(this.animate);
+  // --- Environmental Wind & Falling Leaves (Sakura / Golden Ginkgo / Crimson) ---
+  initAmbientLeaves(theme = 'autumn') {
+    if (this.ambientLeaves) {
+      this.scene.remove(this.ambientLeaves);
+      this.ambientLeaves.geometry.dispose();
+      this.ambientLeaves.material.dispose();
     }
 
-    initResize() {
-        const resize = () => {
-            this.width = window.innerWidth;
-            this.height = window.innerHeight;
+    const geometry = new THREE.BufferGeometry();
+    const positions = new Float32Array(this.leafCount * 3);
+    const rotations = new Float32Array(this.leafCount * 3);
+    const scales = new Float32Array(this.leafCount);
+    const velocities = new Float32Array(this.leafCount * 3);
 
-            this.bgCanvas.width = this.width;
-            this.bgCanvas.height = this.height;
+    let baseColor = 0xf0c34a; // Autumn Gold
+    if (theme === 'sakura') baseColor = 0xffb7c5; // Cherry Blossom Pink
+    else if (theme === 'crimson') baseColor = 0xd32f2f; // Red Maple
+    else if (theme === 'night') baseColor = 0x81d4fa; // Moonlit Petals
 
-            this.fxCanvas.width = this.width;
-            this.fxCanvas.height = this.height;
-        };
-        resize();
-        window.addEventListener('resize', resize);
+    for (let i = 0; i < this.leafCount; i++) {
+      const i3 = i * 3;
+      positions[i3] = (Math.random() - 0.5) * 60;
+      positions[i3 + 1] = Math.random() * 18 + 1;
+      positions[i3 + 2] = (Math.random() - 0.5) * 60;
+
+      rotations[i3] = Math.random() * Math.PI;
+      rotations[i3 + 1] = Math.random() * Math.PI;
+      rotations[i3 + 2] = Math.random() * Math.PI;
+
+      scales[i] = Math.random() * 0.35 + 0.15;
+
+      velocities[i3] = (Math.random() * 0.5 + 0.8) * this.windDirection.x;
+      velocities[i3 + 1] = -Math.random() * 0.8 - 0.4;
+      velocities[i3 + 2] = (Math.random() * 0.5 + 0.8) * this.windDirection.z;
     }
 
-    initBackgroundSymbols(count) {
-        this.bgSymbols = [];
-        for (let i = 0; i < count; i++) {
-            this.bgSymbols.push({
-                x: Math.random() * this.width,
-                y: Math.random() * this.height,
-                symbol: this.symbolsList[Math.floor(Math.random() * this.symbolsList.length)],
-                size: Math.random() * 18 + 14,
-                alpha: Math.random() * 0.15 + 0.05,
-                vx: (Math.random() - 0.5) * 0.3,
-                vy: (Math.random() - 0.5) * 0.3 - 0.1,
-                rot: Math.random() * Math.PI * 2,
-                rotSpeed: (Math.random() - 0.5) * 0.01,
-                color: this.colors[Math.floor(Math.random() * this.colors.length)]
-            });
+    geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+    this.leafVelocities = velocities;
+    this.leafRotations = rotations;
+
+    // Custom Canvas Texture for Japanese Leaf Shape
+    const canvas = document.createElement('canvas');
+    canvas.width = 64; canvas.height = 64;
+    const ctx = canvas.getContext('2d');
+    ctx.fillStyle = theme === 'sakura' ? '#ffb7c5' : (theme === 'crimson' ? '#d32f2f' : '#f0c34a');
+    ctx.beginPath();
+    ctx.ellipse(32, 32, 28, 14, Math.PI / 4, 0, Math.PI * 2);
+    ctx.fill();
+
+    const texture = new THREE.CanvasTexture(canvas);
+
+    const material = new THREE.PointsMaterial({
+      size: 0.85,
+      map: texture,
+      transparent: true,
+      opacity: 0.85,
+      depthWrite: false,
+      blending: THREE.NormalBlending
+    });
+
+    this.ambientLeaves = new THREE.Points(geometry, material);
+    this.scene.add(this.ambientLeaves);
+  }
+
+  // --- Dynamic Sword Sparks (Katana Clash / Parry) ---
+  createSwordSparks(pos, count = 25) {
+    for (let i = 0; i < count; i++) {
+      const geom = new THREE.BufferGeometry();
+      const p = new Float32Array([pos.x, pos.y, pos.z]);
+      geom.setAttribute('position', new THREE.BufferAttribute(p, 3));
+
+      const mat = new THREE.PointsMaterial({
+        color: Math.random() > 0.3 ? 0xffea00 : 0xff5722,
+        size: 0.3 + Math.random() * 0.25,
+        transparent: true,
+        opacity: 1.0,
+        blending: THREE.AdditiveBlending
+      });
+
+      const particle = new THREE.Points(geom, mat);
+      const angle = Math.random() * Math.PI * 2;
+      const speed = Math.random() * 6 + 4;
+      const vel = new THREE.Vector3(
+        Math.cos(angle) * speed,
+        Math.random() * 5 + 2,
+        Math.sin(angle) * speed
+      );
+
+      this.scene.add(particle);
+      this.particles.push({
+        mesh: particle,
+        vel: vel,
+        gravity: -18,
+        life: 0.3 + Math.random() * 0.25,
+        maxLife: 0.55
+      });
+    }
+  }
+
+  // --- Cinematic Blood Spray on Lethal Strike ---
+  createBloodSpray(pos, dir, count = 35) {
+    for (let i = 0; i < count; i++) {
+      const geom = new THREE.BufferGeometry();
+      const p = new Float32Array([pos.x, pos.y, pos.z]);
+      geom.setAttribute('position', new THREE.BufferAttribute(p, 3));
+
+      const mat = new THREE.PointsMaterial({
+        color: Math.random() > 0.2 ? 0x8a0303 : 0xb71c1c,
+        size: 0.25 + Math.random() * 0.25,
+        transparent: true,
+        opacity: 0.95
+      });
+
+      const particle = new THREE.Points(geom, mat);
+      const spread = (Math.random() - 0.5) * 1.5;
+      const speed = Math.random() * 7 + 3;
+      const vel = new THREE.Vector3(
+        dir.x * speed + spread,
+        Math.random() * 4 + 1.5,
+        dir.z * speed + spread
+      );
+
+      this.scene.add(particle);
+      this.particles.push({
+        mesh: particle,
+        vel: vel,
+        gravity: -22,
+        life: 0.4 + Math.random() * 0.3,
+        maxLife: 0.7
+      });
+    }
+  }
+
+  // --- Lightning Sparks (Heavenly Strike) ---
+  createLightningSparks(pos, count = 40) {
+    for (let i = 0; i < count; i++) {
+      const geom = new THREE.BufferGeometry();
+      const p = new Float32Array([pos.x + (Math.random() - 0.5) * 1.5, pos.y + Math.random() * 2, pos.z + (Math.random() - 0.5) * 1.5]);
+      geom.setAttribute('position', new THREE.BufferAttribute(p, 3));
+
+      const mat = new THREE.PointsMaterial({
+        color: 0x80d8ff,
+        size: 0.4 + Math.random() * 0.3,
+        transparent: true,
+        opacity: 1.0,
+        blending: THREE.AdditiveBlending
+      });
+
+      const particle = new THREE.Points(geom, mat);
+      const vel = new THREE.Vector3((Math.random() - 0.5) * 12, Math.random() * 8 + 3, (Math.random() - 0.5) * 12);
+
+      this.scene.add(particle);
+      this.particles.push({
+        mesh: particle,
+        vel: vel,
+        gravity: -10,
+        life: 0.25 + Math.random() * 0.2,
+        maxLife: 0.45
+      });
+    }
+  }
+
+  // --- Smoke Bomb Cloud ---
+  createSmokeCloud(pos, count = 20) {
+    for (let i = 0; i < count; i++) {
+      const geom = new THREE.SphereGeometry(0.8 + Math.random() * 0.6, 6, 6);
+      const mat = new THREE.MeshBasicMaterial({
+        color: 0xcccccc,
+        transparent: true,
+        opacity: 0.6
+      });
+
+      const mesh = new THREE.Mesh(geom, mat);
+      mesh.position.set(
+        pos.x + (Math.random() - 0.5) * 2,
+        pos.y + 0.5 + Math.random() * 1,
+        pos.z + (Math.random() - 0.5) * 2
+      );
+
+      this.scene.add(mesh);
+      this.particles.push({
+        mesh: mesh,
+        vel: new THREE.Vector3((Math.random() - 0.5) * 1.2, Math.random() * 0.8 + 0.2, (Math.random() - 0.5) * 1.2),
+        isMesh: true,
+        scaleSpeed: 1.04,
+        life: 2.2,
+        maxLife: 2.2
+      });
+    }
+  }
+
+  // --- Main Update Loop ---
+  update(delta) {
+    // 1. Update Ambient Leaves
+    if (this.ambientLeaves) {
+      const positions = this.ambientLeaves.geometry.attributes.position.array;
+      for (let i = 0; i < this.leafCount; i++) {
+        const i3 = i * 3;
+        positions[i3] += this.leafVelocities[i3] * delta;
+        positions[i3 + 1] += this.leafVelocities[i3 + 1] * delta;
+        positions[i3 + 2] += this.leafVelocities[i3 + 2] * delta;
+
+        // Reset if ground hit or drifted out of arena bounds
+        if (positions[i3 + 1] < 0 || positions[i3] > 30 || positions[i3 + 2] > 30) {
+          positions[i3] = (Math.random() - 0.5) * 50 - 15;
+          positions[i3 + 1] = Math.random() * 14 + 6;
+          positions[i3 + 2] = (Math.random() - 0.5) * 50 - 15;
         }
+      }
+      this.ambientLeaves.geometry.attributes.position.needsUpdate = true;
     }
 
-    // Burst sparks at specific client coordinates (e.g. over a button or tile)
-    burstSparks(x, y, count = 18, color = '#38bdf8') {
-        for (let i = 0; i < count; i++) {
-            const angle = (Math.PI * 2 * i) / count + (Math.random() - 0.5) * 0.5;
-            const speed = Math.random() * 4 + 2;
-            this.fxParticles.push({
-                x: x,
-                y: y,
-                vx: Math.cos(angle) * speed,
-                vy: Math.sin(angle) * speed,
-                size: Math.random() * 4 + 2,
-                color: Math.random() > 0.3 ? color : '#ffffff',
-                alpha: 1,
-                decay: Math.random() * 0.02 + 0.02,
-                gravity: 0.05
-            });
+    // 2. Update FX Particles
+    for (let i = this.particles.length - 1; i >= 0; i--) {
+      const p = this.particles[i];
+      p.life -= delta;
+
+      if (p.life <= 0) {
+        this.scene.remove(p.mesh);
+        if (p.mesh.geometry) p.mesh.geometry.dispose();
+        if (p.mesh.material) p.mesh.material.dispose();
+        this.particles.splice(i, 1);
+        continue;
+      }
+
+      if (p.isMesh) {
+        // Volumetric smoke expansion
+        p.mesh.position.addScaledVector(p.vel, delta);
+        p.mesh.scale.multiplyScalar(p.scaleSpeed);
+        p.mesh.material.opacity = (p.life / p.maxLife) * 0.5;
+      } else {
+        // Point particle physics
+        const posAttr = p.mesh.geometry.attributes.position;
+        p.vel.y += p.gravity * delta;
+        posAttr.array[0] += p.vel.x * delta;
+        posAttr.array[1] += p.vel.y * delta;
+        posAttr.array[2] += p.vel.z * delta;
+
+        // Bounce on floor
+        if (posAttr.array[1] < 0.05) {
+          posAttr.array[1] = 0.05;
+          p.vel.y *= -0.3;
+          p.vel.x *= 0.6;
+          p.vel.z *= 0.6;
         }
+
+        posAttr.needsUpdate = true;
+        p.mesh.material.opacity = p.life / p.maxLife;
+      }
     }
-
-    // Celebrate Level Win with full screen confetti
-    launchConfetti(duration = 2500) {
-        const count = 100;
-        for (let i = 0; i < count; i++) {
-            this.confettiParticles.push({
-                x: Math.random() * this.width,
-                y: -20 - Math.random() * 100,
-                vx: (Math.random() - 0.5) * 4,
-                vy: Math.random() * 4 + 3,
-                size: Math.random() * 8 + 6,
-                color: this.colors[Math.floor(Math.random() * this.colors.length)],
-                rot: Math.random() * 360,
-                rotSpeed: (Math.random() - 0.5) * 8,
-                alpha: 1,
-                decay: 0.003
-            });
-        }
-    }
-
-    animate() {
-        // Clear Canvases
-        this.bgCtx.clearRect(0, 0, this.width, this.height);
-        this.fxCtx.clearRect(0, 0, this.width, this.height);
-
-        // 1. Draw Floating Math Ambient Symbols
-        for (let p of this.bgSymbols) {
-            p.x += p.vx;
-            p.y += p.vy;
-            p.rot += p.rotSpeed;
-
-            if (p.x < -50) p.x = this.width + 50;
-            if (p.x > this.width + 50) p.x = -50;
-            if (p.y < -50) p.y = this.height + 50;
-            if (p.y > this.height + 50) p.y = -50;
-
-            this.bgCtx.save();
-            this.bgCtx.translate(p.x, p.y);
-            this.bgCtx.rotate(p.rot);
-            this.bgCtx.font = `600 ${p.size}px "Outfit", sans-serif`;
-            this.bgCtx.fillStyle = p.color;
-            this.bgCtx.globalAlpha = p.alpha;
-            this.bgCtx.textAlign = 'center';
-            this.bgCtx.textBaseline = 'middle';
-            this.bgCtx.fillText(p.symbol, 0, 0);
-            this.bgCtx.restore();
-        }
-
-        // 2. Draw FX Particles (Sparks & Clicks)
-        for (let i = this.fxParticles.length - 1; i >= 0; i--) {
-            const p = this.fxParticles[i];
-            p.x += p.vx;
-            p.y += p.vy;
-            p.vy += p.gravity;
-            p.alpha -= p.decay;
-
-            if (p.alpha <= 0) {
-                this.fxParticles.splice(i, 1);
-                continue;
-            }
-
-            this.fxCtx.save();
-            this.fxCtx.globalAlpha = Math.max(0, p.alpha);
-            this.fxCtx.fillStyle = p.color;
-            this.fxCtx.shadowBlur = 8;
-            this.fxCtx.shadowColor = p.color;
-            this.fxCtx.beginPath();
-            this.fxCtx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
-            this.fxCtx.fill();
-            this.fxCtx.restore();
-        }
-
-        // 3. Draw Confetti
-        for (let i = this.confettiParticles.length - 1; i >= 0; i--) {
-            const p = this.confettiParticles[i];
-            p.x += p.vx;
-            p.y += p.vy;
-            p.rot += p.rotSpeed;
-            p.alpha -= p.decay;
-
-            if (p.y > this.height + 50 || p.alpha <= 0) {
-                this.confettiParticles.splice(i, 1);
-                continue;
-            }
-
-            this.fxCtx.save();
-            this.fxCtx.translate(p.x, p.y);
-            this.fxCtx.rotate((p.rot * Math.PI) / 180);
-            this.fxCtx.globalAlpha = Math.max(0, p.alpha);
-            this.fxCtx.fillStyle = p.color;
-            this.fxCtx.fillRect(-p.size / 2, -p.size / 2, p.size, p.size * 0.6);
-            this.fxCtx.restore();
-        }
-
-        requestAnimationFrame(this.animate);
-    }
+  }
 }
-
-window.particleEngine = null;
-window.addEventListener('DOMContentLoaded', () => {
-    window.particleEngine = new ParticleEngine();
-});

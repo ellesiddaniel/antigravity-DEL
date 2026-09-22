@@ -1,314 +1,453 @@
 <!DOCTYPE html>
 <html lang="id">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Mathemagica - Game Teka-Teki Matematika & Asah Otak</title>
-    <meta name="description" content="Game teka-teki logika matematika interaktif dengan mode Make 24, Kisi Persamaan, Aljabar Ikon, Pola Bilangan, dan Time Attack.">
-    
-    <!-- Google Fonts -->
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@500;700;800&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-    
-    <!-- CSS Styles -->
-    <link rel="stylesheet" href="css/style.css">
-    <link rel="stylesheet" href="css/animations.css">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Ghost of Tsushima: Way of the Samurai (RPG)</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700;900&family=Noto+Serif+JP:wght@400;700;900&family=Plus+Jakarta+Sans:wght@400;600;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css">
+  <!-- Three.js CDN -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 </head>
-<body>
-    <!-- Background Canvas and Ambient Mesh -->
-    <div class="bg-mesh"></div>
+<body class="kurosawa-off">
+  <!-- 3D Canvas Container -->
+  <div id="game-container">
     <canvas id="bg-canvas"></canvas>
-    <canvas id="fx-canvas"></canvas>
+  </div>
 
-    <div class="app-container">
-        <!-- TOP HEADER & PLAYER HUD -->
-        <header class="top-header">
-            <div class="brand">
-                <div class="brand-icon">∑</div>
-                <div class="brand-info">
-                    <h1>MATHEMAGICA</h1>
-                    <span>Teka-Teki & Logika Matematika</span>
-                </div>
-            </div>
+  <!-- Cinematic Letterbox Bars -->
+  <div id="cinematic-bar-top" class="cinematic-bar"></div>
+  <div id="cinematic-bar-bottom" class="cinematic-bar"></div>
 
-            <!-- Player Status & Progress Bar -->
-            <div class="player-hud">
-                <div class="rank-badge" id="rank-badge">
-                    <span>🌱</span> <span>Novis Aritmatika</span>
-                </div>
+  <!-- Screen Flash & Vignette Overlays -->
+  <div id="parry-flash" class="screen-flash"></div>
+  <div id="ghost-overlay" class="ghost-vignette"></div>
+  <div id="blood-vignette" class="low-hp-vignette"></div>
+  <div id="kurosawa-grain" class="film-grain"></div>
 
-                <div class="xp-container">
-                    <div class="xp-labels">
-                        <span id="level-label">Lv. 1</span>
-                        <span id="xp-label">0 / 100 XP</span>
-                    </div>
-                    <div class="xp-bar-bg">
-                        <div class="xp-bar-fill" id="xp-bar-fill"></div>
-                    </div>
-                </div>
-
-                <div class="streak-pill" title="Streak Jawaban Benar Berturut-turut">
-                    <span>🔥</span> <span id="streak-value">0</span>
-                </div>
-
-                <div class="stars-pill" title="Bintang & Penghargaan">
-                    <span>⭐</span> <span id="stars-value">0</span>
-                </div>
-            </div>
-
-            <!-- Action Controls -->
-            <div class="header-actions">
-                <button class="icon-btn" id="sound-toggle-btn" title="Efek Suara (On/Off)">🔊</button>
-                <button class="icon-btn" id="music-toggle-btn" title="Musik Relaksasi Synth (On/Off)">🎼</button>
-                <button class="icon-btn" id="achievements-btn" title="Koleksi Prestasi & Badge">🏆</button>
-            </div>
-        </header>
-
-        <!-- MODE NAVIGATION TABS -->
-        <nav class="mode-nav">
-            <button class="mode-tab active" data-mode="make24">
-                <span class="tab-icon">🎲</span> Make 24
-            </button>
-            <button class="mode-tab" data-mode="crossGrid">
-                <span class="tab-icon">🧩</span> Kisi Persamaan
-            </button>
-            <button class="mode-tab" data-mode="visualAlgebra">
-                <span class="tab-icon">🍎</span> Aljabar Ikon
-            </button>
-            <button class="mode-tab" data-mode="sequence">
-                <span class="tab-icon">🔮</span> Pola Bilangan
-            </button>
-            <button class="mode-tab" data-mode="timeAttack">
-                <span class="tab-icon">⏱️</span> Time Attack
-            </button>
-        </nav>
-
-        <!-- MAIN GAME ARENA -->
-        <main class="game-arena">
-            
-            <!-- MODE 1: MAKE 24 -->
-            <section class="mode-view active" id="view-make24">
-                <div class="arena-header" style="width: 100%;">
-                    <div class="mode-title-wrap">
-                        <h2>🎲 Tantangan Angka 24</h2>
-                        <div class="mode-desc">Gunakan semua 4 angka dengan operasi (+, −, ×, ÷) untuk menghasilkan 24.</div>
-                    </div>
-                    <div class="arena-tools">
-                        <button class="tool-btn" id="make24-hint-btn">💡 Petunjuk</button>
-                        <button class="tool-btn primary" id="make24-new-btn">🔄 Soal Baru</button>
-                    </div>
-                </div>
-
-                <!-- 4 Interactive Number Cards -->
-                <div class="make24-cards-row" id="make24-cards">
-                    <!-- Injected dynamically -->
-                </div>
-
-                <!-- Live Formula Builder & Evaluator Display -->
-                <div class="formula-display">
-                    <div class="formula-text placeholder" id="formula-text">Pilih angka & operator...</div>
-                    <div class="formula-eval" id="formula-eval">= ?</div>
-                </div>
-
-                <!-- Operators & Actions Grid -->
-                <div class="make24-operators">
-                    <button class="op-btn make24-op" data-op="(">(</button>
-                    <button class="op-btn make24-op" data-op=")">)</button>
-                    <button class="op-btn make24-op" data-op="+">+</button>
-                    <button class="op-btn make24-op" data-op="-">−</button>
-                    <button class="op-btn make24-op" data-op="*">×</button>
-                    <button class="op-btn make24-op" data-op="/">÷</button>
-                    <button class="op-btn action-btn" id="make24-backspace">⌫ Hapus</button>
-                    <button class="op-btn action-btn" id="make24-clear">Bersihkan</button>
-                    <button class="op-btn action-btn submit-btn" id="make24-submit">✓ Kirim (Submit)</button>
-                </div>
-            </section>
-
-            <!-- MODE 2: CROSS-MATH GRID -->
-            <section class="mode-view" id="view-crossGrid">
-                <div class="arena-header" style="width: 100%;">
-                    <div class="mode-title-wrap">
-                        <h2>🧩 Kisi Persamaan (Cross-Math)</h2>
-                        <div class="mode-desc">Isi kotak kosong (?) agar setiap baris dan kolom menghasilkan angka target.</div>
-                    </div>
-                    <div class="arena-tools">
-                        <button class="tool-btn" id="grid-hint-btn">💡 Petunjuk</button>
-                        <button class="tool-btn primary" id="grid-new-btn">🔄 Grid Baru</button>
-                    </div>
-                </div>
-
-                <!-- 5x5 Cross Math Grid -->
-                <div class="cross-grid-board" id="cross-grid-container">
-                    <!-- Injected dynamically -->
-                </div>
-
-                <!-- Interactive Grid Numpad -->
-                <div id="grid-numpad-wrap">
-                    <!-- Injected dynamically -->
-                </div>
-            </section>
-
-            <!-- MODE 3: VISUAL ALGEBRA -->
-            <section class="mode-view" id="view-visualAlgebra">
-                <div class="arena-header" style="width: 100%;">
-                    <div class="mode-title-wrap">
-                        <h2>🍎 Aljabar Ikon & Simbol</h2>
-                        <div class="mode-desc">Pecahkan nilai setiap simbol dan hitung persamaan akhir dengan teliti (KABATAKU).</div>
-                    </div>
-                    <div class="arena-tools">
-                        <button class="tool-btn" id="algebra-hint-btn">💡 Pembahasan</button>
-                        <button class="tool-btn primary" id="algebra-new-btn">🔄 Soal Baru</button>
-                    </div>
-                </div>
-
-                <div class="visual-algebra-wrap">
-                    <div id="algebra-equations" style="display: flex; flex-direction: column; gap: 10px;">
-                        <!-- Equations injected dynamically -->
-                    </div>
-                    <div class="equation-card question" id="algebra-question">
-                        <!-- Question injected dynamically -->
-                    </div>
-                    <div class="algebra-options-grid" id="algebra-options">
-                        <!-- Options injected dynamically -->
-                    </div>
-                </div>
-            </section>
-
-            <!-- MODE 4: NUMBER SEQUENCE -->
-            <section class="mode-view" id="view-sequence">
-                <div class="arena-header" style="width: 100%;">
-                    <div class="mode-title-wrap">
-                        <h2>🔮 Pola Deret Bilangan</h2>
-                        <div class="mode-desc">Temukan pola matematika tersembunyi dan pilih angka untuk mengisi tanda tanya (?).</div>
-                    </div>
-                    <div class="arena-tools">
-                        <button class="tool-btn" id="seq-hint-btn">💡 Petunjuk Pola</button>
-                        <button class="tool-btn primary" id="seq-new-btn">🔄 Pola Baru</button>
-                    </div>
-                </div>
-
-                <div class="sequence-row" id="sequence-bubbles">
-                    <!-- Injected dynamically -->
-                </div>
-
-                <div class="algebra-options-grid" id="sequence-options" style="width: 100%; max-width: 500px;">
-                    <!-- Options injected dynamically -->
-                </div>
-            </section>
-
-            <!-- MODE 5: TIME ATTACK -->
-            <section class="mode-view" id="view-timeAttack">
-                <div class="arena-header" style="width: 100%;">
-                    <div class="mode-title-wrap">
-                        <h2>⏱️ Mode Kilat (Time Attack)</h2>
-                        <div class="mode-desc">Jawab sebanyak mungkin soal dengan cepat! Setiap jawaban benar memberi bonus waktu.</div>
-                    </div>
-                </div>
-
-                <!-- Timer & Score Display -->
-                <div class="time-attack-status">
-                    <div class="ta-metric">
-                        <span class="label">Sisa Waktu</span>
-                        <span class="value timer" id="ta-timer">45s</span>
-                    </div>
-                    <div class="ta-metric">
-                        <span class="label">Skor</span>
-                        <span class="value score" id="ta-score">0</span>
-                    </div>
-                    <div class="ta-metric">
-                        <span class="label">Kombo Streak</span>
-                        <span class="value combo" id="ta-combo">x1</span>
-                    </div>
-                </div>
-
-                <!-- Active Question Box -->
-                <div class="ta-question-card" id="ta-question">
-                    Siap Menguji Kecepatanmu?
-                </div>
-
-                <div class="algebra-options-grid" id="ta-options" style="width: 100%; max-width: 580px;">
-                    <!-- Options injected dynamically -->
-                </div>
-
-                <!-- Start Overlay Backdrop -->
-                <div id="ta-start-overlay" style="position: absolute; inset: 0; background: rgba(9, 13, 22, 0.9); border-radius: var(--radius-lg); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px; z-index: 50;">
-                    <div style="font-size: 50px;">⏱️</div>
-                    <h3 style="font-size: 26px; font-weight: 800;">Tantangan Kilat Aritmatika</h3>
-                    <p style="color: var(--text-muted); max-width: 360px; text-align: center; font-size: 14px;">
-                        Waktu awal 45 detik. Jawab benar menambah +2 detik & melipatgandakan poin kombo!
-                    </p>
-                    <button class="tool-btn primary" id="ta-start-btn" style="padding: 14px 36px; font-size: 18px; border-radius: var(--radius-full);">
-                        🚀 Mulai Tantangan
-                    </button>
-                </div>
-            </section>
-
-        </main>
-    </div>
-
-    <!-- MODALS -->
-
-    <!-- Achievements Modal -->
-    <div class="modal-overlay" id="achievements-modal">
-        <div class="modal-card">
-            <div class="modal-header">
-                <h3>🏆 Koleksi Prestasi</h3>
-                <button class="modal-close-btn">&times;</button>
-            </div>
-            <div class="achievements-list" id="achievements-list">
-                <!-- Achievements injected dynamically -->
-            </div>
+  <!-- Game HUD Overlay -->
+  <div id="hud">
+    <!-- Top Left: Player Status & Legend Rank -->
+    <div class="hud-player-profile">
+      <div class="profile-badge">
+        <div class="sakai-mon-icon"></div>
+        <div class="profile-text">
+          <div class="player-name">JIN SAKAI <span class="japanese-name">境 井 仁</span></div>
+          <div class="player-title" id="player-title">THE GHOST OF TSUSHIMA</div>
         </div>
-    </div>
+      </div>
 
-    <!-- Step-by-Step Hint Modal -->
-    <div class="modal-overlay" id="hint-modal">
-        <div class="modal-card">
-            <div class="modal-header">
-                <h3 id="hint-title">💡 Petunjuk</h3>
-                <button class="modal-close-btn">&times;</button>
-            </div>
-            <div id="hint-content" style="line-height: 1.6; font-size: 15px;">
-                <!-- Content injected dynamically -->
-            </div>
+      <!-- Health Bar (Bamboo aesthetic) -->
+      <div class="bar-container health-wrap">
+        <div class="bar-label">HEALTH</div>
+        <div class="bar-track">
+          <div id="health-bar" class="bar-fill health-fill" style="width: 100%;"></div>
+          <div id="health-ghost-bar" class="bar-ghost" style="width: 100%;"></div>
         </div>
-    </div>
+        <div class="bar-value" id="health-text">100 / 100</div>
+      </div>
 
-    <!-- Game Over / Time Attack Summary Modal -->
-    <div class="modal-overlay" id="game-over-modal">
-        <div class="modal-card" style="text-align: center; align-items: center;">
-            <div style="font-size: 48px; margin-top: 10px;">🏆</div>
-            <h3 style="font-size: 24px; font-weight: 800;">Waktu Habis!</h3>
-            <div style="display: flex; gap: 20px; margin: 15px 0;">
-                <div>
-                    <div style="font-size: 12px; color: var(--text-muted); text-transform: uppercase;">Total Skor</div>
-                    <div id="final-score" style="font-size: 32px; font-weight: 800; color: #fbbf24; font-family: 'JetBrains Mono', monospace;">0</div>
-                </div>
-                <div>
-                    <div style="font-size: 12px; color: var(--text-muted); text-transform: uppercase;">Akurasi</div>
-                    <div id="final-accuracy" style="font-size: 20px; font-weight: 700; color: var(--cyan); margin-top: 6px;">100%</div>
-                </div>
-                <div>
-                    <div style="font-size: 12px; color: var(--text-muted); text-transform: uppercase;">Bonus XP</div>
-                    <div id="final-xp" style="font-size: 20px; font-weight: 700; color: var(--emerald); margin-top: 6px;">+100 XP</div>
-                </div>
-            </div>
-            <div style="display: flex; gap: 10px; width: 100%;">
-                <button class="tool-btn modal-close-btn" style="flex: 1; padding: 12px; font-size: 14px; justify-content: center;">Tutup</button>
-                <button class="tool-btn primary" id="ta-restart-btn" style="flex: 1; padding: 12px; font-size: 14px; justify-content: center;">Main Lagi</button>
-            </div>
+      <!-- Posture / Guard Meter -->
+      <div class="bar-container posture-wrap">
+        <div class="bar-label">POSTURE</div>
+        <div class="bar-track posture-track">
+          <div id="posture-bar" class="bar-fill posture-fill" style="width: 0%;"></div>
         </div>
+      </div>
+
+      <!-- Resolve Orbs (Golden Talismans) -->
+      <div class="resolve-section">
+        <div class="resolve-label">RESOLVE <span class="key-hint">[E] HEAL</span></div>
+        <div class="resolve-orbs-container" id="resolve-orbs">
+          <!-- Dynamically populated 3-6 orbs -->
+        </div>
+      </div>
+
+      <!-- Ghost Stance Meter -->
+      <div class="ghost-meter-wrap" id="ghost-meter-wrap">
+        <div class="ghost-meter-icon">鬼</div>
+        <div class="ghost-meter-bar-track">
+          <div id="ghost-meter-fill" class="ghost-meter-fill" style="width: 0%;"></div>
+        </div>
+        <div class="ghost-meter-text" id="ghost-meter-text">GHOST STANCE [V]</div>
+      </div>
     </div>
 
-    <!-- Toast Notifications Container -->
-    <div class="toast-container" id="toast-container"></div>
+    <!-- Top Center: Objective & Level Banner -->
+    <div class="hud-stage-banner" id="stage-banner">
+      <div class="stage-kanji" id="stage-kanji">対馬の冥人</div>
+      <div class="stage-title" id="stage-title">LEVEL 1: KOMODA BEACH SKIRMISH</div>
+      <div class="stage-sub" id="stage-sub">Defeat all Mongol invaders to liberate the outpost</div>
+      <div class="stage-enemies-count" id="stage-enemies">ENEMIES REMAINING: <span>3</span></div>
+    </div>
 
-    <!-- Script Files -->
-    <script src="js/audio.js"></script>
-    <script src="js/particles.js"></script>
-    <script src="js/storage.js"></script>
-    <script src="js/puzzles.js"></script>
-    <script src="js/app.js"></script>
+    <!-- Top Right: Supplies, Points, & Menu Controls -->
+    <div class="hud-top-right">
+      <div class="resource-badge">
+        <span class="resource-icon">🪙</span>
+        <span class="resource-label">SUPPLIES:</span>
+        <span class="resource-val" id="supplies-val">150</span>
+      </div>
+      <div class="resource-badge">
+        <span class="resource-icon">⚡</span>
+        <span class="resource-label">TECHNIQUE PTS:</span>
+        <span class="resource-val" id="technique-val">1</span>
+      </div>
+      <div class="top-buttons">
+        <button id="btn-shrine" class="hud-btn"><span class="btn-icon">⛩️</span> SHRINE / UPGRADES [M]</button>
+        <button id="btn-kurosawa" class="hud-btn"><span class="btn-icon">🎬</span> KUROSAWA MODE [K]</button>
+        <button id="btn-sound" class="hud-btn"><span class="btn-icon">🔊</span> AUDIO</button>
+        <button id="btn-help" class="hud-btn"><span class="btn-icon">📜</span> CONTROLS</button>
+      </div>
+    </div>
+
+    <!-- Center Boss / Duel Health Bar (Visible in Boss Fights / 1v1 Duels) -->
+    <div id="boss-hud" class="boss-hud hidden">
+      <div class="boss-title-wrap">
+        <div class="boss-kanji" id="boss-kanji">蒙古軍総督</div>
+        <div class="boss-name" id="boss-name">GENERAL KHOTUN KHAN</div>
+      </div>
+      <div class="boss-health-track">
+        <div id="boss-health-bar" class="boss-health-fill" style="width: 100%;"></div>
+        <div id="boss-health-ghost" class="boss-health-ghost" style="width: 100%;"></div>
+      </div>
+      <div class="boss-posture-track">
+        <div id="boss-posture-bar" class="boss-posture-fill" style="width: 0%;"></div>
+      </div>
+      <div class="boss-stance-counter" id="boss-stance-counter">STANCE WEAKNESS: <span id="boss-weakness">WATER STANCE</span></div>
+    </div>
+
+    <!-- Floating Combat Alerts (Perfect Parry, Stance Advantage, etc) -->
+    <div id="combat-alerts" class="combat-alerts"></div>
+
+    <!-- Bottom Left: Stance Selector Wheel & Hotkeys -->
+    <div class="hud-stances-container">
+      <div class="stance-title">KATANA STANCE <span class="sub-hint">(Keys 1 - 4)</span></div>
+      <div class="stances-grid">
+        <div class="stance-card active" id="stance-stone" data-stance="stone">
+          <div class="stance-key">1</div>
+          <div class="stance-kanji">岩</div>
+          <div class="stance-info">
+            <div class="stance-name">STONE</div>
+            <div class="stance-effective">Vs. Swordsmen</div>
+          </div>
+        </div>
+        <div class="stance-card" id="stance-water" data-stance="water">
+          <div class="stance-key">2</div>
+          <div class="stance-kanji">水</div>
+          <div class="stance-info">
+            <div class="stance-name">WATER</div>
+            <div class="stance-effective">Vs. Shields</div>
+          </div>
+        </div>
+        <div class="stance-card" id="stance-wind" data-stance="wind">
+          <div class="stance-key">3</div>
+          <div class="stance-kanji">風</div>
+          <div class="stance-info">
+            <div class="stance-name">WIND</div>
+            <div class="stance-effective">Vs. Spears</div>
+          </div>
+        </div>
+        <div class="stance-card" id="stance-moon" data-stance="moon">
+          <div class="stance-key">4</div>
+          <div class="stance-kanji">月</div>
+          <div class="stance-info">
+            <div class="stance-name">MOON</div>
+            <div class="stance-effective">Vs. Brutes</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Bottom Right: Mythic Techniques & Ghost Weapons -->
+    <div class="hud-skills-container">
+      <div class="skills-grid">
+        <div class="skill-card" id="skill-kunai" title="Throw Kunai to stagger foes">
+          <div class="skill-icon">🗡️</div>
+          <div class="skill-name">KUNAI</div>
+          <div class="skill-key">[F]</div>
+          <div class="skill-count" id="kunai-count">3/3</div>
+        </div>
+        <div class="skill-card" id="skill-smoke" title="Drop Smoke Bomb for stealth kills">
+          <div class="skill-icon">💨</div>
+          <div class="skill-name">SMOKE</div>
+          <div class="skill-key">[G]</div>
+          <div class="skill-count" id="smoke-count">2/2</div>
+        </div>
+        <div class="skill-card" id="skill-heavenly" title="Unblockable Lightning Slash (Cost 1 Resolve)">
+          <div class="skill-icon">⚡</div>
+          <div class="skill-name">HEAVENLY STRIKE</div>
+          <div class="skill-key">[R]</div>
+          <div class="skill-cost">1 🟡</div>
+        </div>
+        <div class="skill-card" id="skill-wrath" title="Triple Lethal Teleport Slash (Cost 3 Resolve)">
+          <div class="skill-icon">🌪️</div>
+          <div class="skill-name">DANCE OF WRATH</div>
+          <div class="skill-key">[T]</div>
+          <div class="skill-cost">3 🟡</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Bottom Center: Controls Quick Bar -->
+    <div class="hud-controls-bar">
+      <span><kbd>WASD</kbd> Move</span>
+      <span><kbd>LMB / J</kbd> Fast Slash</span>
+      <span><kbd>RMB / K</kbd> Heavy Stance Strike</span>
+      <span><kbd>Space / Q</kbd> Parry / Block</span>
+      <span><kbd>Shift</kbd> Dodge / Roll</span>
+      <span><kbd>E</kbd> Heal</span>
+      <span><kbd>1-4</kbd> Stance</span>
+      <span><kbd>V</kbd> Ghost Stance</span>
+    </div>
+  </div>
+
+  <!-- Standoff Duel Cinematic Overlay -->
+  <div id="standoff-overlay" class="standoff-overlay hidden">
+    <div class="standoff-letterbox-top"></div>
+    <div class="standoff-letterbox-bottom"></div>
+    <div class="standoff-content">
+      <div class="standoff-kanji">一 騎 討 ち</div>
+      <div class="standoff-title">STANDOFF</div>
+      <div class="standoff-instruction" id="standoff-prompt">HOLD <kbd class="glow-kbd">SPACE</kbd> OR <kbd class="glow-kbd">LEFT CLICK</kbd> TO DRAW BLADE</div>
+      <div class="standoff-timer-ring">
+        <div class="standoff-streak-counter" id="standoff-streak">STREAK: 0/3</div>
+      </div>
+      <div class="standoff-hint">Release the instant your opponent strikes! (Do not flinch on feints)</div>
+    </div>
+  </div>
+
+  <!-- Upgrade Shrine / RPG Modal -->
+  <div id="shrine-modal" class="modal-overlay hidden">
+    <div class="shrine-window">
+      <div class="shrine-header">
+        <div class="shrine-title-wrap">
+          <span class="shrine-kanji">八幡神宮</span>
+          <h2>GOLDEN TEMPLE SHRINE & ARMORY</h2>
+          <p>Channel your spirit, forge sharper steel, and unlock legendary samurai techniques.</p>
+        </div>
+        <button id="close-shrine" class="btn-close">&times;</button>
+      </div>
+
+      <div class="shrine-tabs">
+        <button class="shrine-tab active" data-tab="techniques">⚔️ SAMURAI & GHOST TECHNIQUES</button>
+        <button class="shrine-tab" data-tab="armory">🛡️ SAKAI ARMORY & KATANA</button>
+        <button class="shrine-tab" data-tab="charms">🪬 SACRED CHARMS</button>
+      </div>
+
+      <div class="shrine-body">
+        <!-- Tab 1: Techniques -->
+        <div class="tab-content active" id="tab-techniques">
+          <div class="tech-grid">
+            <div class="tech-card" id="tech-perfect-parry">
+              <div class="tech-icon">⚡</div>
+              <div class="tech-details">
+                <div class="tech-name">Perfect Parry Window Expansion</div>
+                <div class="tech-desc">Increases the perfect parry timing window by +30% and heals +10% HP on riposte.</div>
+                <div class="tech-req">Cost: 1 Technique Point</div>
+              </div>
+              <button class="btn-unlock" data-tech="perfectParry">UPGRADE (1 TP)</button>
+            </div>
+
+            <div class="tech-card" id="tech-water-flurry">
+              <div class="tech-icon">🌊</div>
+              <div class="tech-details">
+                <div class="tech-name">Water Stance: Surging Flurry</div>
+                <div class="tech-desc">Adds a 4th heavy slash that instantly shatters Mongol shields and staggers surrounding enemies.</div>
+                <div class="tech-req">Cost: 1 Technique Point</div>
+              </div>
+              <button class="btn-unlock" data-tech="waterFlurry">UPGRADE (1 TP)</button>
+            </div>
+
+            <div class="tech-card" id="tech-wind-typhoon">
+              <div class="tech-icon">🌪️</div>
+              <div class="tech-details">
+                <div class="tech-name">Wind Stance: Typhoon Kick</div>
+                <div class="tech-desc">Hold Heavy Strike in Wind Stance to deliver a lethal kick that launches spearmen into obstacles.</div>
+                <div class="tech-req">Cost: 1 Technique Point</div>
+              </div>
+              <button class="btn-unlock" data-tech="windTyphoon">UPGRADE (1 TP)</button>
+            </div>
+
+            <div class="tech-card" id="tech-moon-cleave">
+              <div class="tech-icon">🌙</div>
+              <div class="tech-details">
+                <div class="tech-name">Moon Stance: Whirlwind Cleave</div>
+                <div class="tech-desc">Increases 360-degree spin radius and deals double posture damage to Mongol Brutes.</div>
+                <div class="tech-req">Cost: 2 Technique Points</div>
+              </div>
+              <button class="btn-unlock" data-tech="moonCleave">UPGRADE (2 TP)</button>
+            </div>
+
+            <div class="tech-card" id="tech-standoff-mastery">
+              <div class="tech-icon">🗡️</div>
+              <div class="tech-details">
+                <div class="tech-name">Standoff Streak Mastery</div>
+                <div class="tech-desc">Allows executing up to 3 consecutive enemies in a single standoff initiation.</div>
+                <div class="tech-req">Cost: 2 Technique Points</div>
+              </div>
+              <button class="btn-unlock" data-tech="standoffMastery">UPGRADE (2 TP)</button>
+            </div>
+
+            <div class="tech-card" id="tech-iron-will">
+              <div class="tech-icon">❤️‍🔥</div>
+              <div class="tech-details">
+                <div class="tech-name">Iron Will (Revival)</div>
+                <div class="tech-desc">When taking fatal damage, spend 2 Resolve to instantly revive with 50% health.</div>
+                <div class="tech-req">Cost: 3 Technique Points</div>
+              </div>
+              <button class="btn-unlock" data-tech="ironWill">UPGRADE (3 TP)</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Tab 2: Armory & Katana -->
+        <div class="tab-content" id="tab-armory">
+          <div class="armory-section">
+            <div class="armory-card">
+              <h3>🗡️ SAKAI CLAN STEEL KATANA</h3>
+              <p>Level: <span id="katana-level">1</span> / 5</p>
+              <p>Damage: <span id="katana-dmg">+0%</span> | Critical Chance: <span id="katana-crit">10%</span></p>
+              <button id="btn-upgrade-katana" class="btn-action">FORGE KATANA (100 Supplies)</button>
+            </div>
+
+            <div class="armory-card">
+              <h3>🛡️ SAKAI CLAN ARMOR (Equipped)</h3>
+              <p>Bonus: +35 Max Health, +15% Melee Damage, +1 Standoff Streak.</p>
+              <button class="btn-action btn-equip" data-armor="sakai" disabled>EQUIPPED</button>
+            </div>
+
+            <div class="armory-card">
+              <h3>🥷 GHOST ARMOR</h3>
+              <p>Bonus: Requires 1 less kill for Ghost Stance, kills have 30% chance to terrify nearby foes.</p>
+              <button class="btn-action btn-equip" data-armor="ghost">EQUIP ARMOR</button>
+            </div>
+
+            <div class="armory-card">
+              <h3>🥋 RONIN ATTIRE</h3>
+              <p>Bonus: +30% Melee Attack speed, +20% Movement Speed.</p>
+              <button class="btn-action btn-equip" data-armor="ronin">EQUIP ARMOR</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Tab 3: Charms -->
+        <div class="tab-content" id="tab-charms">
+          <div class="charms-grid">
+            <div class="charm-item active-charm" data-charm="amaterasu">
+              <div class="charm-icon">☀️</div>
+              <div class="charm-name">Charm of Amaterasu</div>
+              <div class="charm-desc">Killing enemies restores a moderate amount of Health (+20 HP).</div>
+              <button class="btn-charm-toggle">EQUIPPED</button>
+            </div>
+            <div class="charm-item" data-charm="inari">
+              <div class="charm-icon">🦊</div>
+              <div class="charm-name">Charm of Inari</div>
+              <div class="charm-desc">Increases Supplies and Technique experience gained from battles by +50%.</div>
+              <button class="btn-charm-toggle">EQUIP</button>
+            </div>
+            <div class="charm-item" data-charm="lightning">
+              <div class="charm-icon">⚡</div>
+              <div class="charm-name">Charm of Heavenly Vengeance</div>
+              <div class="charm-desc">Perfect Parries trigger a thunder shockwave that stuns surrounding foes.</div>
+              <button class="btn-charm-toggle">EQUIP</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="shrine-footer">
+        <div class="footer-stats">
+          <span>Supplies: <strong id="modal-supplies">150</strong></span>
+          <span>Technique Points: <strong id="modal-tp">1</strong></span>
+        </div>
+        <button id="btn-close-shrine-bottom" class="btn-secondary">RETURN TO BATTLE (ESC)</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Victory / Stage Clear Screen -->
+  <div id="victory-modal" class="modal-overlay hidden">
+    <div class="victory-card">
+      <div class="victory-kanji">勝 利</div>
+      <h2 id="victory-title">OUTPOST LIBERATED!</h2>
+      <p id="victory-sub">The Mongols have been driven back from Tsushima's shores.</p>
+      <div class="victory-rewards">
+        <div class="reward-pill"><span>🪙 +120 Supplies</span></div>
+        <div class="reward-pill"><span>⚡ +1 Technique Point</span></div>
+        <div class="reward-pill"><span>⚔️ Legend Rank Increased</span></div>
+      </div>
+      <div class="victory-actions">
+        <button id="btn-open-shrine-victory" class="btn-secondary">⛩️ VISIT SHRINE</button>
+        <button id="btn-next-level" class="btn-primary">CONTINUE TO NEXT PROVINCE (ENTER)</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Game Over Screen -->
+  <div id="gameover-modal" class="modal-overlay hidden">
+    <div class="gameover-card">
+      <div class="gameover-kanji">討 死</div>
+      <h2>FALLEN IN BATTLE</h2>
+      <p>A samurai never truly falls as long as Tsushima's wind remembers his honor.</p>
+      <div class="gameover-actions">
+        <button id="btn-retry" class="btn-primary">RETRY BATTLE (ENTER)</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Controls Guide Modal -->
+  <div id="controls-modal" class="modal-overlay hidden">
+    <div class="controls-card">
+      <h2>📜 SAMURAI COMBAT GUIDE</h2>
+      <div class="guide-grid">
+        <div class="guide-col">
+          <h3>⚔️ Basic Controls</h3>
+          <ul>
+            <li><strong>WASD / Arrow Keys</strong>: Move Jin Sakai</li>
+            <li><strong>Left Click / J</strong>: Fast Katana Slash</li>
+            <li><strong>Right Click / K</strong>: Heavy Stance Strike (Breaks Guard)</li>
+            <li><strong>Space / Q</strong>: Guard & Perfect Parry (Time it with the blue glint!)</li>
+            <li><strong>Left Shift</strong>: Dodge / Evade Roll (Evades red unblockable attacks)</li>
+            <li><strong>E</strong>: Heal using 1 Resolve orb</li>
+          </ul>
+        </div>
+        <div class="guide-col">
+          <h3>🥋 4 Combat Stances</h3>
+          <ul>
+            <li><strong>[1] Stone (Iwa)</strong>: Critical thrusts against <em>Swordsmen & Ronin</em>.</li>
+            <li><strong>[2] Water (Mizu)</strong>: Shield-breaker flurry against <em>Shieldmen</em>.</li>
+            <li><strong>[3] Wind (Kaze)</strong>: Sweeping arcs and kick against <em>Spearmen</em>.</li>
+            <li><strong>[4] Moon (Tsuki)</strong>: 360-degree spin against <em>Mongol Brutes</em>.</li>
+          </ul>
+        </div>
+        <div class="guide-col">
+          <h3>⚡ Mythic Skills & Standoff</h3>
+          <ul>
+            <li><strong>[R] Heavenly Strike</strong>: High-speed unblockable lightning slash (1 Resolve).</li>
+            <li><strong>[T] Dance of Wrath</strong>: Teleports and slices 3 enemies (3 Resolve).</li>
+            <li><strong>[F] Kunai / [G] Smoke</strong>: Stuns or blinds crowds.</li>
+            <li><strong>[V] Ghost Stance</strong>: 1-hit kill fury when meter fills.</li>
+            <li><strong>Standoff</strong>: Hold Space/LMB, release right when the enemy charges!</li>
+          </ul>
+        </div>
+      </div>
+      <button id="close-controls" class="btn-primary">RESUME BATTLE</button>
+    </div>
+  </div>
+
+  <!-- Game Scripts -->
+  <script src="js/audio.js"></script>
+  <script src="js/stances.js"></script>
+  <script src="js/particles.js"></script>
+  <script src="js/progression.js"></script>
+  <script src="js/models.js"></script>
+  <script src="js/ai.js"></script>
+  <script src="js/enemy.js"></script>
+  <script src="js/player.js"></script>
+  <script src="js/combat.js"></script>
+  <script src="js/game.js"></script>
 </body>
 </html>
