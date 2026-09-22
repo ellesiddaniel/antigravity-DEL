@@ -1,300 +1,330 @@
 <!DOCTYPE html>
 <html lang="id">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>BRAWL LEGENDS - 2D Platform Fighter</title>
-  <meta name="description" content="Game 2D Platform Fighter bertema Brawlhalla dengan 4 karakter unik, sistem damage knockback, AI pintar, dan efek pertarungan seru!">
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;800;900&family=Rajdhani:wght@600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="css/style.css">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Brain Runner 3D - Cyber Quiz Parkour</title>
+    <meta name="description" content="Game 3D Parkour berkecepatan tinggi sambil menjawab soal kuis interaktif dengan aksi lompat, slide, dan memilih gerbang jawaban yang benar!">
+    
+    <!-- CSS Styles -->
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/animations.css">
+
+    <!-- Three.js Library -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 </head>
 <body>
-  <div id="game-wrapper">
-    <!-- Game Canvas -->
-    <canvas id="gameCanvas" width="1280" height="720"></canvas>
 
-    <!-- Overlay UI Layer -->
-    <div id="ui-layer">
-      <!-- Top Battle HUD (Visible during gameplay) -->
-      <div id="battle-hud" class="hud-container hidden">
+    <!-- 3D WebGL Canvas Container -->
+    <div id="game-canvas-container"></div>
+
+    <!-- ==========================================================
+         HEADS-UP DISPLAY (HUD)
+         ========================================================== -->
+    <div id="hud-container">
+        <!-- Top Stats Bar -->
         <div class="hud-top-bar">
-          <div class="match-timer-badge">
-            <span class="timer-icon">⏱</span>
-            <span id="match-timer">03:00</span>
-          </div>
-          <div class="hud-controls-hint">
-            <span>[ESC] Pause</span>
-            <span>[H] Hitbox Debug</span>
-          </div>
+            <div class="hud-pill">
+                <span class="label">SKOR</span>
+                <span class="value" id="hud-score">0</span>
+            </div>
+            <div class="hud-pill multiplier-pill">
+                <span class="label">MULTI</span>
+                <span class="value" id="hud-multiplier">x1</span>
+            </div>
+            <div class="hud-pill">
+                <span class="value" id="hud-streak">Streak: 0🔥</span>
+            </div>
+            <div class="hud-pill">
+                <span class="label">JARAK</span>
+                <span class="value" id="hud-distance">0m</span>
+            </div>
+            <div class="hud-pill">
+                <span class="label">SPEED</span>
+                <span class="value" id="hud-speed">60 km/h</span>
+            </div>
+            <div class="hud-pill">
+                <span id="hud-lives">❤️❤️❤️</span>
+            </div>
         </div>
 
-        <div id="player-hud-cards" class="hud-cards-grid">
-          <!-- Fighter cards generated dynamically in JS -->
-        </div>
-      </div>
-
-      <!-- Center Announcer Banner -->
-      <div id="announcer-banner" class="announcer-banner hidden">
-        <h1 id="announcer-text" class="announcer-title">BRAWL!</h1>
-        <p id="announcer-subtitle" class="announcer-sub"></p>
-      </div>
-
-      <!-- Screen: Title / Main Menu -->
-      <div id="title-screen" class="screen-panel active">
-        <div class="title-content">
-          <div class="logo-wrapper">
-            <div class="logo-badge">ULTIMATE 2D FIGHTER</div>
-            <h1 class="game-logo">BRAWL<span class="text-accent">LEGENDS</span></h1>
-            <p class="game-tagline">Arena Pertarungan 4 Legenda Tanpa Batas</p>
-          </div>
-
-          <div class="menu-buttons-group">
-            <button id="btn-play-brawl" class="btn btn-primary btn-glow">
-              <span class="btn-icon">⚔️</span>
-              <span class="btn-text">BRAWL (MULTIPLAYER / AI)</span>
-            </button>
-            <button id="btn-play-training" class="btn btn-secondary">
-              <span class="btn-icon">🎯</span>
-              <span class="btn-text">TRAINING / PRACTICE</span>
-            </button>
-            <button id="btn-controls-guide" class="btn btn-tertiary">
-              <span class="btn-icon">🎮</span>
-              <span class="btn-text">KONTROL & PANDUAN</span>
-            </button>
-            <button id="btn-open-settings" class="btn btn-tertiary">
-              <span class="btn-icon">⚙️</span>
-              <span class="btn-text">PENGATURAN</span>
-            </button>
-          </div>
-
-          <div class="quick-roster-preview">
-            <div class="roster-avatar valravn" title="Valravn"><span>Valravn</span></div>
-            <div class="roster-avatar ignis" title="Ignis"><span>Ignis</span></div>
-            <div class="roster-avatar astrid" title="Astrid"><span>Astrid</span></div>
-            <div class="roster-avatar titanus" title="Titanus"><span>Titanus</span></div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Screen: Character & Stage Selection -->
-      <div id="select-screen" class="screen-panel hidden">
-        <div class="select-header">
-          <button id="btn-select-back" class="btn-back">‹ KEMBALI</button>
-          <h2 class="select-title">PILIH LEGENDA & ARENA</h2>
-          <div class="rules-summary">
-            <label>Mode: 
-              <select id="select-game-mode" class="select-dropdown">
-                <option value="stock" selected>Stock Battle (3 Nyawa)</option>
-                <option value="timed">Timed Battle (3 Menit)</option>
-                <option value="training">Training Arena</option>
-              </select>
-            </label>
-          </div>
+        <!-- Active Question Floating Card -->
+        <div id="hud-question-card" style="display: none;">
+            <div class="hud-q-top-row">
+                <div id="hud-q-cat">⚡ SOAL KUIS: MATEMATIKA</div>
+                <div id="hud-q-timer" class="hud-timer-badge">⏳ 5.0 detik (100m)</div>
+            </div>
+            <div id="hud-q-text">Berapakah 15 x 8?</div>
+            <div class="hud-options-preview">
+                <div class="hud-opt-pill" id="hud-opt-a"><span class="opt-tag">Jalur A</span> <span class="opt-text">120</span></div>
+                <div class="hud-opt-pill" id="hud-opt-b"><span class="opt-tag">Jalur B</span> <span class="opt-text">110</span></div>
+                <div class="hud-opt-pill" id="hud-opt-c"><span class="opt-tag">Jalur C</span> <span class="opt-text">130</span></div>
+            </div>
+            <div class="hud-q-progress-bar">
+                <div id="hud-q-progress-fill"></div>
+            </div>
+            <div class="hud-q-hint">💡 Pilih jalur gerbang yang tepat! Tekan <b>[E]</b> untuk perlambat waktu (Slow-Mo).</div>
         </div>
 
-        <div class="select-main-grid">
-          <!-- 4 Player Slots Configuration -->
-          <div class="slots-section">
-            <div class="slots-grid" id="slots-container">
-              <!-- Rendered dynamically for P1, P2, P3, P4 -->
+        <!-- Slow-Mo Bullet Time Energy Bar -->
+        <div class="slowmo-meter-container">
+            <div class="slowmo-label">
+                <span>SLOW-MO [E]</span>
+                <span id="slowmo-pct">⚡</span>
             </div>
-          </div>
-
-          <!-- Character Detail & Stage Selector Sidebar -->
-          <div class="preview-sidebar">
-            <div id="character-detail-card" class="character-detail-card">
-              <div class="char-card-header">
-                <div class="char-element-tag" id="char-element">SHADOW</div>
-                <h3 id="char-name" class="char-name">VALRAVN</h3>
-                <p id="char-title" class="char-subtitle">The Shadow Assassin</p>
-              </div>
-              <div class="char-portrait-container">
-                <canvas id="char-preview-canvas" width="240" height="240"></canvas>
-              </div>
-              <div class="char-stats-box">
-                <div class="stat-row">
-                  <span>Speed:</span>
-                  <div class="stat-bar"><div class="stat-fill" id="stat-speed" style="width: 90%;"></div></div>
-                </div>
-                <div class="stat-row">
-                  <span>Attack:</span>
-                  <div class="stat-bar"><div class="stat-fill" id="stat-attack" style="width: 60%;"></div></div>
-                </div>
-                <div class="stat-row">
-                  <span>Defense:</span>
-                  <div class="stat-bar"><div class="stat-fill" id="stat-defense" style="width: 50%;"></div></div>
-                </div>
-                <div class="stat-row">
-                  <span>Dexterity:</span>
-                  <div class="stat-bar"><div class="stat-fill" id="stat-dex" style="width: 80%;"></div></div>
-                </div>
-              </div>
-              <p class="char-lore-text" id="char-desc">Pembunuh bayangan lincah bersenjatakan belati ganda. Bergerak secepat kilat dengan kombo bertubi-tubi.</p>
+            <div class="slowmo-bar-bg">
+                <div id="slowmo-fill"></div>
             </div>
-
-            <!-- Stage Carousel Selector -->
-            <div class="stage-selector-card">
-              <span class="stage-label">PILIH ARENA:</span>
-              <div class="stage-picker">
-                <button id="btn-prev-stage" class="stage-arrow">‹</button>
-                <div class="stage-info">
-                  <h4 id="current-stage-name">Sky Citadel</h4>
-                  <p id="current-stage-desc">Kuil melayang di atas awan dengan 2 platform samping.</p>
-                </div>
-                <button id="btn-next-stage" class="stage-arrow">›</button>
-              </div>
-            </div>
-
-            <button id="btn-start-fight" class="btn btn-primary btn-fight-start">
-              <span class="btn-icon">⚡</span>
-              <span class="btn-text">MULAI PERTARUNGAN!</span>
-            </button>
-          </div>
         </div>
-      </div>
 
-      <!-- Screen: Victory / Results -->
-      <div id="results-screen" class="screen-panel hidden">
-        <div class="results-container">
-          <div class="victory-banner">
-            <h2 class="victory-headline">PEMENANG BRAWL!</h2>
-            <h1 id="winner-name" class="winner-hero-name">PLAYER 1 (VALRAVN)</h1>
-          </div>
+        <!-- Floating Result Feedback -->
+        <div id="hud-feedback" class="feedback-popup">BENAR! +1000 PTS</div>
 
-          <div class="winner-showcase">
-            <canvas id="winner-canvas" width="300" height="300"></canvas>
-          </div>
-
-          <div class="stats-table-wrapper">
-            <table class="match-stats-table">
-              <thead>
-                <tr>
-                  <th>Fighter</th>
-                  <th>KOs</th>
-                  <th>Falls</th>
-                  <th>Damage Diberikan</th>
-                  <th>Damage Diterima</th>
-                </tr>
-              </thead>
-              <tbody id="match-stats-body">
-                <!-- Populated dynamically -->
-              </tbody>
-            </table>
-          </div>
-
-          <div class="results-actions">
-            <button id="btn-rematch" class="btn btn-primary">
-              <span class="btn-icon">🔄</span> REMATCH
-            </button>
-            <button id="btn-results-select" class="btn btn-secondary">
-              <span class="btn-icon">👥</span> GANTI KARAKTER
-            </button>
-            <button id="btn-results-menu" class="btn btn-tertiary">
-              <span class="btn-icon">🏠</span> MENU UTAMA
-            </button>
-          </div>
+        <!-- Mobile Virtual Controls -->
+        <div class="mobile-controls">
+            <div class="mobile-dpad">
+                <button class="v-btn" id="btn-mobile-left" title="Pindah Kiri">◀</button>
+                <button class="v-btn" id="btn-mobile-right" title="Pindah Kanan">▶</button>
+            </div>
+            <div class="mobile-actions">
+                <button class="v-btn" id="btn-mobile-slide" title="Meluncur">▼</button>
+                <button class="v-btn" id="btn-mobile-jump" title="Melompat">▲</button>
+                <button class="v-btn" id="btn-mobile-slowmo" style="color: #ffb700;" title="Slow Motion">⏱️</button>
+            </div>
         </div>
-      </div>
-
-      <!-- Modal: Controls & Guide -->
-      <div id="controls-modal" class="modal-backdrop hidden">
-        <div class="modal-box">
-          <div class="modal-header">
-            <h3>🎮 PANDUAN KONTROL & CARA BERMAIN</h3>
-            <button class="btn-close-modal" id="btn-close-controls">&times;</button>
-          </div>
-          <div class="modal-body">
-            <div class="controls-grid">
-              <div class="controls-column">
-                <h4>Player 1 (Keyboard Standar)</h4>
-                <div class="key-item"><span class="key-badge">A / D</span> Gerak Kiri / Kanan</div>
-                <div class="key-item"><span class="key-badge">W / Space</span> Lompat / Double Jump / Wall Jump</div>
-                <div class="key-item"><span class="key-badge">S</span> Turun Platform / Fast Fall</div>
-                <div class="key-item"><span class="key-badge">J</span> Serangan Ringan (Light Attack)</div>
-                <div class="key-item"><span class="key-badge">K</span> Serangan Berat / Signature (Heavy)</div>
-                <div class="key-item"><span class="key-badge">L / Shift</span> Dodge / Dash / Invulnerable</div>
-                <div class="key-item"><span class="key-badge">W + K (Air)</span> Up Recovery (Lompatan Penyelamat)</div>
-              </div>
-              <div class="controls-column">
-                <h4>Player 2 (Opsional / Lokal)</h4>
-                <div class="key-item"><span class="key-badge">Panah Kiri/Kanan</span> Gerak Kiri / Kanan</div>
-                <div class="key-item"><span class="key-badge">Panah Atas</span> Lompat</div>
-                <div class="key-item"><span class="key-badge">Panah Bawah</span> Turun Platform</div>
-                <div class="key-item"><span class="key-badge">Numpad 1 / 4</span> Serangan Ringan</div>
-                <div class="key-item"><span class="key-badge">Numpad 2 / 5</span> Serangan Berat</div>
-                <div class="key-item"><span class="key-badge">Numpad 3 / 6</span> Dodge / Dash</div>
-              </div>
-            </div>
-
-            <div class="brawl-mechanics-guide">
-              <h4>Tips Bertarung Ala Brawlhalla:</h4>
-              <ul>
-                <li><strong>Sistem Damage:</strong> Semakin tinggi % damage musuh (0% putih &rarr; 150%+ merah gelap), semakin jauh mereka terpental jika terkena serangan berat!</li>
-                <li><strong>Wall Cling & Jump:</strong> Sentuh dinding pulau melayang untuk meluncur dan tekan lompat untuk memanjat kembali ke arena.</li>
-                <li><strong>Air Recovery:</strong> Jika terlempar ke luar arena, gunakan Double Jump + Up Heavy (W+K di udara) untuk kembali ke daratan!</li>
-                <li><strong>Dodge Timing:</strong> Dodge memberikan kebal sekejap (invulnerability frames) dari serangan musuh.</li>
-              </ul>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Modal: Settings -->
-      <div id="settings-modal" class="modal-backdrop hidden">
-        <div class="modal-box">
-          <div class="modal-header">
-            <h3>⚙️ PENGATURAN GAME</h3>
-            <button class="btn-close-modal" id="btn-close-settings">&times;</button>
-          </div>
-          <div class="modal-body">
-            <div class="setting-item">
-              <label for="slider-sfx-volume">Volume SFX / Suara Efek:</label>
-              <input type="range" id="slider-sfx-volume" min="0" max="1" step="0.05" value="0.8">
-            </div>
-            <div class="setting-item">
-              <label for="slider-bgm-volume">Volume Musik BGM:</label>
-              <input type="range" id="slider-bgm-volume" min="0" max="1" step="0.05" value="0.4">
-            </div>
-            <div class="setting-item checkbox-item">
-              <label><input type="checkbox" id="check-screen-shake" checked> Aktifkan Screen Shake (Getaran Layar)</label>
-            </div>
-            <div class="setting-item checkbox-item">
-              <label><input type="checkbox" id="check-particles" checked> Efek Partikel Penuh (Sparks, Smoke, Glow)</label>
-            </div>
-            <div class="setting-item checkbox-item">
-              <label><input type="checkbox" id="check-hitbox-debug"> Tampilkan Hitbox & Hurtbox (Debug Mode)</label>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Pause Menu Overlay -->
-      <div id="pause-modal" class="modal-backdrop hidden">
-        <div class="modal-box pause-box">
-          <h2>GAME DI-PAUSE</h2>
-          <div class="pause-menu-buttons">
-            <button id="btn-resume-game" class="btn btn-primary">LANJUTKAN [ESC]</button>
-            <button id="btn-pause-restart" class="btn btn-secondary">ULANGI MATCH</button>
-            <button id="btn-pause-select" class="btn btn-secondary">PILIH KARAKTER</button>
-            <button id="btn-pause-menu" class="btn btn-tertiary">MENU UTAMA</button>
-          </div>
-        </div>
-      </div>
-
     </div>
-  </div>
 
-  <!-- Game Scripts -->
-  <script src="js/audio.js"></script>
-  <script src="js/particles.js"></script>
-  <script src="js/stages.js"></script>
-  <script src="js/characters.js"></script>
-  <script src="js/physics.js"></script>
-  <script src="js/ai.js"></script>
-  <script src="js/input.js"></script>
-  <script src="js/game.js"></script>
-  <script src="js/main.js"></script>
+    <!-- ==========================================================
+         START / MAIN MENU
+         ========================================================== -->
+    <div id="menu-start" class="menu-overlay">
+        <div class="menu-card">
+            <h1 class="game-title">BRAIN RUNNER 3D</h1>
+            <p class="game-subtitle">CYBER QUIZ PARKOUR ACTION</p>
+
+            <div class="menu-group">
+                <label for="select-category">KATEGORI SOAL:</label>
+                <select id="select-category" class="cyber-select">
+                    <option value="mixed_id">Campuran Semua Kategori (Indonesia)</option>
+                    <option value="math_id">Matematika & Berhitung Cepat</option>
+                    <option value="math_dynamic">Generator Matematika Tanpa Batas ♾️</option>
+                    <option value="science_id">IPA, Sains & Tata Surya</option>
+                    <option value="general_id">Pengetahuan Umum & Geografi</option>
+                    <option value="english_id">Bahasa Inggris (Vocabulary & Grammar)</option>
+                    <option value="logic_id">Logika & Teka-Teki Asah Otak</option>
+                    <option value="mixed_en">English Trivia & Science (EN)</option>
+                </select>
+            </div>
+
+            <div class="menu-group">
+                <label for="select-difficulty">TINGKAT KESULITAN:</label>
+                <select id="select-difficulty" class="cyber-select">
+                    <option value="easy">Mudah (Easy) - Kecepatan santai</option>
+                    <option value="medium" selected>Sedang (Medium) - Standar</option>
+                    <option value="hard">Tantangan (Hard) - Refleks Cepat</option>
+                    <option value="insane">Insane (Speed Runner) ⚡</option>
+                </select>
+            </div>
+
+            <div class="menu-group">
+                <label for="select-mode">MODE PERMAINAN:</label>
+                <select id="select-mode" class="cyber-select">
+                    <option value="endless" selected>Endless Cyber Run (Skor Tertinggi)</option>
+                    <option value="stages">Stage Adventure (10 Soal Target)</option>
+                </select>
+            </div>
+
+            <div class="menu-group">
+                <label>WARNA VISOR KARAKTER:</label>
+                <div class="color-picker-row">
+                    <div class="color-dot selected" data-color="0x00f3ff" style="background: #00f3ff;"></div>
+                    <div class="color-dot" data-color="0xff0077" style="background: #ff0077;"></div>
+                    <div class="color-dot" data-color="0x00ff88" style="background: #00ff88;"></div>
+                    <div class="color-dot" data-color="0xffb700" style="background: #ffb700;"></div>
+                    <div class="color-dot" data-color="0x9900ff" style="background: #9900ff;"></div>
+                </div>
+            </div>
+
+            <button id="btn-start-game" class="cyber-btn">MULAILAH BERLARI 🚀</button>
+            <button id="btn-open-custom-quiz" class="cyber-btn secondary">✏️ BUAT / EDIT KUIS SENDIRI</button>
+
+            <div class="controls-hint">
+                <strong>Kontrol:</strong> <kbd>A</kbd>/<kbd>D</kbd> atau <kbd>←</kbd>/<kbd>→</kbd> Jalur | <kbd>Spasi</kbd>/<kbd>W</kbd> Lompat & Double Jump | <kbd>S</kbd>/<kbd>Shift</kbd> Slide | <kbd>E</kbd> Slow-Mo | <kbd>Esc</kbd> Pause
+            </div>
+        </div>
+    </div>
+
+    <!-- ==========================================================
+         PAUSE MENU
+         ========================================================== -->
+    <div id="menu-pause" class="menu-overlay" style="display: none;">
+        <div class="menu-card">
+            <h2 class="game-title">GAME DIHENTIKAN</h2>
+            <p class="game-subtitle">Tarik napas dan bersiap lanjut!</p>
+
+            <div class="menu-group">
+                <label for="slider-music">Volume Musik:</label>
+                <input type="range" id="slider-music" min="0" max="1" step="0.05" value="0.5" class="cyber-input">
+            </div>
+
+            <div class="menu-group">
+                <label for="slider-sfx">Volume Efek Suara:</label>
+                <input type="range" id="slider-sfx" min="0" max="1" step="0.05" value="0.8" class="cyber-input">
+            </div>
+
+            <div class="menu-group">
+                <label for="select-cam-mode">Mode Kamera:</label>
+                <select id="select-cam-mode" class="cyber-select">
+                    <option value="third_person" selected>Orang Ketiga (3rd Person)</option>
+                    <option value="first_person">Orang Pertama (1st Person POV)</option>
+                </select>
+            </div>
+
+            <button id="btn-resume" class="cyber-btn">LANJUTKAN [ESC]</button>
+            <button class="cyber-btn secondary btn-to-main-menu">MENU UTAMA</button>
+        </div>
+    </div>
+
+    <!-- ==========================================================
+         GAME OVER SCREEN
+         ========================================================== -->
+    <div id="menu-gameover" class="menu-overlay" style="display: none;">
+        <div class="menu-card">
+            <h2 class="game-title" style="background: linear-gradient(135deg, #ff0077, #ffb700); -webkit-background-clip: text;">GAME OVER</h2>
+            <p class="game-subtitle" id="go-highscore-tag">Skor Tercapai</p>
+
+            <div class="stat-grid">
+                <div class="stat-box">
+                    <div class="stat-label">TOTAL SKOR</div>
+                    <div class="stat-num" id="go-final-score">0</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-label">JARAK LARI</div>
+                    <div class="stat-num" id="go-distance">0 m</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-label">JAWABAN BENAR</div>
+                    <div class="stat-num" id="go-correct">0 / 0</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-label">AKURASI KUIS</div>
+                    <div class="stat-num" id="go-accuracy">0%</div>
+                </div>
+            </div>
+
+            <button id="btn-restart" class="cyber-btn">MAIN LAGI 🔄</button>
+            <button class="cyber-btn secondary btn-to-main-menu">MENU UTAMA</button>
+        </div>
+    </div>
+
+    <!-- ==========================================================
+         STAGE VICTORY SCREEN
+         ========================================================== -->
+    <div id="menu-victory" class="menu-overlay" style="display: none;">
+        <div class="menu-card">
+            <h2 class="game-title" style="background: linear-gradient(135deg, #00ff88, #00f3ff); -webkit-background-clip: text;">STAGE CLEARED! 🏆</h2>
+            <p class="game-subtitle">Hebat! Kamu berhasil menyelesaikan tantangan kuis!</p>
+
+            <div class="stat-grid">
+                <div class="stat-box">
+                    <div class="stat-label">TOTAL SKOR</div>
+                    <div class="stat-num" id="vic-final-score">0</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-label">JARAK LARI</div>
+                    <div class="stat-num" id="vic-distance">0 m</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-label">AKURASI</div>
+                    <div class="stat-num" id="vic-accuracy">100%</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-label">BONUS SPEED</div>
+                    <div class="stat-num">+5000</div>
+                </div>
+            </div>
+
+            <button id="btn-victory-restart" class="cyber-btn">MAIN LAGI 🚀</button>
+            <button class="cyber-btn secondary btn-to-main-menu">MENU UTAMA</button>
+        </div>
+    </div>
+
+    <!-- ==========================================================
+         CUSTOM QUIZ BUILDER MODAL
+         ========================================================== -->
+    <div id="modal-custom-quiz" class="menu-overlay" style="display: none;">
+        <div class="menu-card modal-large">
+            <div class="modal-header">
+                <h3 class="game-title" style="font-size: 24px;">PEMBUAT KUIS KUSTOM</h3>
+                <button id="btn-close-custom-quiz" class="btn-remove-q" style="font-size: 28px;">✕</button>
+            </div>
+
+            <div class="modal-body">
+                <div class="menu-group">
+                    <label for="cq-title">Nama Paket Kuis:</label>
+                    <input type="text" id="cq-title" class="cyber-input" placeholder="Contoh: Kuis Matematika Kelas 5">
+                </div>
+
+                <div class="menu-group">
+                    <label for="cq-desc">Deskripsi Singkat:</label>
+                    <input type="text" id="cq-desc" class="cyber-input" placeholder="Contoh: Soal latihan perkalian dan pembagian">
+                </div>
+
+                <div style="display: flex; justify-content: space-between; align-items: center; margin: 16px 0 10px;">
+                    <label style="color: var(--neon-cyan); font-family: var(--font-display); font-size: 13px;">DAFTAR SOAL (3 Pilihan Jawaban per Soal):</label>
+                    <button id="btn-add-custom-question" type="button" class="btn-sm btn-export">+ Tambah Soal</button>
+                </div>
+
+                <div id="custom-questions-builder">
+                    <!-- Default first question row -->
+                    <div class="custom-q-row">
+                        <div class="q-row-header">
+                            <strong>Soal #1</strong>
+                        </div>
+                        <input type="text" class="cyber-input cq-input-text" placeholder="Tuliskan pertanyaan... (Contoh: Ibukota Indonesia adalah?)" required>
+                        <div class="cq-options-grid">
+                            <div>
+                                <label>Pilihan A (Benar):</label>
+                                <input type="text" class="cyber-input cq-opt-correct" placeholder="Nusantara / Jakarta" required>
+                            </div>
+                            <div>
+                                <label>Pilihan B (Salah):</label>
+                                <input type="text" class="cyber-input cq-opt-wrong1" placeholder="Bandung" required>
+                            </div>
+                            <div>
+                                <label>Pilihan C (Salah):</label>
+                                <input type="text" class="cyber-input cq-opt-wrong2" placeholder="Surabaya" required>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div style="margin-top: 20px; display: flex; gap: 12px;">
+                    <button id="btn-save-custom-quiz" class="cyber-btn" style="margin-top: 0;">💾 Simpan Kuis</button>
+                    <button id="btn-import-quiz-json" class="cyber-btn secondary" style="margin-top: 0;">📥 Impor JSON</button>
+                </div>
+
+                <div style="margin-top: 28px;">
+                    <label style="color: var(--neon-cyan); font-family: var(--font-display); font-size: 13px; display: block; margin-bottom: 10px;">KUIS TERSIMPAN:</label>
+                    <div id="custom-quiz-list"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ==========================================================
+         SCRIPTS ARCHITECTURE
+         ========================================================== -->
+    <script src="js/audio/soundFX.js"></script>
+    <script src="js/quiz/questions.js"></script>
+    <script src="js/quiz/custom.js"></script>
+    <script src="js/quiz/generator.js"></script>
+    <script src="js/engine/scene.js"></script>
+    <script src="js/engine/player.js"></script>
+    <script src="js/engine/gates.js"></script>
+    <script src="js/engine/track.js"></script>
+    <script src="js/ui/hud.js"></script>
+    <script src="js/ui/menus.js"></script>
+    <script src="js/main.js"></script>
 </body>
 </html>
